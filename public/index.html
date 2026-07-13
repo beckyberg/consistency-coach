@@ -24,7 +24,6 @@
     </div>
   </header>
 
-  
   <!-- API KEY BAR -->
   <div class="api-key-bar" id="api-key-bar">
     <span class="api-key-label">🔑 OpenAI API Key</span>
@@ -37,10 +36,64 @@
 
     <aside class="panel panel-left">
 
-      <section class="card">
+      <!-- MODE TABS -->
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tab-demo" onclick="switchMode('demo')">📋 Demo Scenarios</button>
+        <button class="mode-tab" id="tab-import" onclick="switchMode('import')">📥 Import Conversation</button>
+      </div>
+
+      <!-- DEMO MODE PANEL -->
+      <section class="card" id="demo-panel">
         <h2>📋 Load a Research Scenario</h2>
         <p class="card-desc">Each scenario illustrates a different signal pattern identified in the study.</p>
         <div id="scenario-buttons" class="scenario-list"></div>
+      </section>
+
+      <!-- IMPORT MODE PANEL -->
+      <section class="card" id="import-panel" style="display:none">
+        <h2>📥 Import Your Conversation</h2>
+        <p class="card-desc">Paste a real conversation from any dating app. Your match's name will be anonymized automatically before anything is sent for analysis.</p>
+
+        <div class="import-steps">
+
+          <div class="import-step">
+            <label class="import-label">1. Your name <span class="import-hint">(as it appears in the conversation)</span></label>
+            <input type="text" id="import-your-name" class="import-input" placeholder="e.g. Becky" autocomplete="off" />
+          </div>
+
+          <div class="import-step">
+            <label class="import-label">2. Your match's name <span class="import-hint">(will be replaced with "Your Match")</span></label>
+            <input type="text" id="import-match-name" class="import-input" placeholder="e.g. Jordan" autocomplete="off" />
+          </div>
+
+          <div class="import-step">
+            <label class="import-label">3. Paste your conversation</label>
+            <p class="import-format-hint">One message per line — <code>Name: message text</code></p>
+            <textarea id="import-textarea" class="import-textarea" placeholder="Becky: Hey, loved your profile!&#10;Jordan: Thanks! I liked yours too&#10;Becky: Your coffee farm photo is amazing…"></textarea>
+          </div>
+
+          <div class="disclosure-box" id="disclosure-box" style="display:none">
+            <div class="disclosure-icon">🔒</div>
+            <div class="disclosure-text">
+              <strong>Before we analyze</strong>
+              <p>This conversation will be sent to OpenAI for analysis. It is <strong>never stored</strong> by Consistency Coach — not on our server, not in any database. It exists only in transit to OpenAI.</p>
+              <p>Your match's name has been replaced with "Your Match" — you can verify this in the conversation preview above.</p>
+              <p>Note: you are sharing a two-party conversation. The other person has not explicitly consented to this analysis. Use your judgment.</p>
+            </div>
+            <label class="disclosure-check">
+              <input type="checkbox" id="disclosure-consent" onchange="toggleAnalyzeBtn()" />
+              <span>I understand and want to proceed</span>
+            </label>
+          </div>
+
+          <div class="import-actions">
+            <button class="btn btn-secondary" id="import-preview-btn" onclick="previewImport()">👁 Preview &amp; Anonymize</button>
+            <button class="btn btn-primary" id="import-analyze-btn" style="display:none" disabled onclick="runImportAnalysis()">🔍 Run Consistency Coach</button>
+          </div>
+
+          <div id="import-status" class="import-status"></div>
+
+        </div>
       </section>
 
       <section class="card profile-card" id="profile-a-card">
@@ -74,13 +127,13 @@
     <section class="panel panel-center">
       <div class="chat-header">
         <h2>💬 Conversation</h2>
-        <p id="chat-subtitle" class="card-desc">Load a scenario to see the conversation</p>
+        <p id="chat-subtitle" class="card-desc">Load a scenario or import a conversation</p>
       </div>
 
       <div id="chat-window" class="chat-window">
         <div class="chat-empty">
           <span>👆</span>
-          <p>Select a research scenario to load a conversation</p>
+          <p>Select a research scenario or import a conversation to get started</p>
         </div>
       </div>
 

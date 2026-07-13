@@ -392,3 +392,212 @@ function escapeHTML(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+
+/* ============================================================
+   IMPORT MODE — v1.1
+   Combined Option B + C: anonymize match name + disclosure
+   ============================================================ */
+
+let currentMode = 'demo'; // 'demo' | 'import'
+let importedConversation = []; // anonymized messages
+let importYourName = '';
+
+// ---- MODE SWITCH ----
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById('tab-demo').classList.toggle('active', mode === 'demo');
+  document.getElementById('tab-import').classList.toggle('active', mode === 'import');
+  document.getElementById('demo-panel').style.display = mode === 'demo' ? '' : 'none';
+  document.getElementById('import-panel').style.display = mode === 'import' ? '' : 'none';
+
+  if (mode === 'import') {
+    // Reset import UI state
+    document.getElementById('disclosure-box').style.display = 'none';
+    document.getElementById('import-analyze-btn').style.display = 'none';
+    document.getElementById('import-status').textContent = '';
+    document.getElementById('disclosure-consent').checked = false;
+    // Deselect any active scenario
+    document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+    // Reset center panel
+    const win = document.getElementById('chat-window');
+    win.innerHTML = '<div class="chat-empty"><span>👆</span><p>Fill in the fields above and click Preview &amp; Anonymize</p></div>';
+    document.getElementById('chat-subtitle').textContent = 'Imported conversation — anonymized';
+    document.getElementById('message-composer').style.display = 'none';
+    document.getElementById('analyze-btn').disabled = true;
+    // Hide profile cards in import mode
+    document.getElementById('profile-a-card').style.display = 'none';
+    document.getElementById('profile-b-card').style.display = 'none';
+    resetAnalysisPanel();
+  } else {
+    document.getElementById('profile-a-card').style.display = '';
+    document.getElementById('profile-b-card').style.display = '';
+  }
+}
+
+// ---- PREVIEW & ANONYMIZE ----
+function previewImport() {
+  const yourName   = document.getElementById('import-your-name').value.trim();
+  const matchName  = document.getElementById('import-match-name').value.trim();
+  const rawText    = document.getElementById('import-textarea').value.trim();
+  const statusEl   = document.getElementById('import-status');
+
+  // Validation
+  if (!yourName) {
+    showImportStatus('Please enter your name (Step 1)', 'error');
+    document.getElementById('import-your-name').focus();
+    return;
+  }
+  if (!matchName) {
+    showImportStatus("Please enter your match's name (Step 2)", 'error');
+    document.getElementById('import-match-name').focus();
+    return;
+  }
+  if (!rawText) {
+    showImportStatus('Please paste a conversation (Step 3)', 'error');
+    document.getElementById('import-textarea').focus();
+    return;
+  }
+
+  // Parse lines
+  const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const parsed = [];
+  const unrecognized = [];
+
+  const escRegex = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const yourRe  = new RegExp('^' + escRegex(yourName)  + '\\s*:', 'i');
+  const matchRe = new RegExp('^' + escRegex(matchName) + '\\s*:', 'i');
+
+  lines.forEach((line, i) => {
+    if (yourRe.test(line)) {
+      const text = line.replace(new RegExp('^' + escRegex(yourName) + '\\s*:\\s*', 'i'), '').trim();
+      parsed.push({ sender: yourName, text });
+    } else if (matchRe.test(line)) {
+      // Anonymize the match's name right here
+      const text = line.replace(new RegExp('^' + escRegex(matchName) + '\\s*:\\s*', 'i'), '').trim();
+      parsed.push({ sender: 'Your Match', text });
+    } else {
+      unrecognized.push(i + 1);
+    }
+  });
+
+  if (parsed.length === 0) {
+    showImportStatus(
+      `No messages recognized. Make sure lines start with "${yourName}:" or "${matchName}:" (case-insensitive).`,
+      'error'
+    );
+    return;
+  }
+
+  // Also anonymize any inline mentions of match name within message text
+  const matchNameRe = new RegExp(escRegex(matchName), 'gi');
+  parsed.forEach(m => {
+    m.text = m.text.replace(matchNameRe, 'Your Match');
+  });
+
+  importedConversation = parsed;
+  importYourName = yourName;
+
+  // Render anonymized preview in chat window
+  const win = document.getElementById('chat-window');
+  win.innerHTML = '';
+  parsed.forEach(m => {
+    const isYou = m.sender === yourName;
+    const wrap = document.createElement('div');
+    wrap.className = `bubble-wrap ${isYou ? 'from-a' : 'from-b'}`;
+    wrap.innerHTML = `
+      <span class="bubble-sender">${escapeHTML(m.sender)}</span>
+      <div class="bubble">${escapeHTML(m.text)}</div>
+    `;
+    win.appendChild(wrap);
+  });
+  win.scrollTop = win.scrollHeight;
+
+  // Show summary
+  let statusMsg = `✓ ${parsed.length} messages parsed and anonymized.`;
+  if (unrecognized.length > 0) {
+    statusMsg += ` (${unrecognized.length} line${unrecognized.length > 1 ? 's' : ''} skipped — line${unrecognized.length > 1 ? 's' : ''} ${unrecognized.join(', ')})`;
+  }
+  showImportStatus(statusMsg, 'success');
+
+  // Show disclosure + analyze button
+  document.getElementById('disclosure-box').style.display = 'flex';
+  document.getElementById('disclosure-consent').checked = false;
+  document.getElementById('import-analyze-btn').style.display = '';
+  document.getElementById('import-analyze-btn').disabled = true;
+
+  // Keep the main analyze button hidden (import uses its own button)
+  document.getElementById('analyze-btn').disabled = true;
+}
+
+// ---- TOGGLE ANALYZE BUTTON based on checkbox ----
+function toggleAnalyzeBtn() {
+  const checked = document.getElementById('disclosure-consent').checked;
+  document.getElementById('import-analyze-btn').disabled = !checked;
+}
+
+// ---- RUN IMPORT ANALYSIS ----
+async function runImportAnalysis() {
+  const apiKey = savedApiKey || localStorage.getItem('cc_openai_key') || '';
+  if (!apiKey) {
+    showImportStatus('Enter your OpenAI API key at the top first.', 'error');
+    document.getElementById('api-key-input').focus();
+    return;
+  }
+  if (importedConversation.length === 0) {
+    showImportStatus('No conversation loaded — use Preview & Anonymize first.', 'error');
+    return;
+  }
+
+  // Build lightweight profile stubs for import mode
+  // The agent will analyze conversation-only consistency (no rich profile to compare against)
+  const profileA = {
+    name: importYourName,
+    bio: '(Profile not provided — conversation-only analysis)',
+    prompt1: { question: 'Note', answer: 'No profile data submitted. Assess conversation authenticity and readiness signals only.' },
+    prompt2: { question: 'Note', answer: 'Infer personality and communication style from conversation patterns.' },
+    goal: 'Not specified',
+    interests: 'Not specified'
+  };
+  const profileB = {
+    name: 'Your Match',
+    bio: '(Profile not provided — conversation-only analysis)',
+    prompt1: { question: 'Note', answer: 'No profile data submitted. Assess conversation authenticity and readiness signals only.' },
+    prompt2: { question: 'Note', answer: 'Infer authenticity from message specificity, reciprocity, and engagement depth.' },
+    goal: 'Not specified',
+    interests: 'Not specified'
+  };
+
+  // Set global state so renderAnalysis works
+  currentProfiles = { a: profileA, b: profileB };
+  nameA = importYourName;
+  nameB = 'Your Match';
+  currentConversation = importedConversation;
+
+  // Update readiness labels
+  document.getElementById('ready-a-label').textContent = `${importYourName} — not yet assessed`;
+  document.getElementById('ready-b-label').textContent = `Your Match — not yet assessed`;
+
+  document.getElementById('import-analyze-btn').disabled = true;
+  showImportStatus('Analyzing…', 'loading');
+
+  try {
+    const result = await analyzeWithOpenAI(apiKey, profileA, profileB, importedConversation);
+    renderAnalysis(result);
+    showImportStatus('Analysis complete ✓', 'success');
+    // Scroll right panel into view on mobile
+    document.querySelector('.panel-right').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    showImportStatus('Error: ' + err.message, 'error');
+    console.error(err);
+  } finally {
+    document.getElementById('import-analyze-btn').disabled = false;
+  }
+}
+
+// ---- IMPORT STATUS HELPER ----
+function showImportStatus(msg, type) {
+  const el = document.getElementById('import-status');
+  el.textContent = msg;
+  el.className = 'import-status status-' + type;
+}
