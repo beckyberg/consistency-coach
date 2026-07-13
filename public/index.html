@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consistency Coach — Agentic Dating Prototype</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">🔍</span>
+        <div>
+          <h1>Consistency Coach</h1>
+          <p class="tagline">Agentic trust detection for dating apps</p>
+        </div>
+      </div>
+      <div class="research-badge">
+        <span>📖</span>
+        <span>Grounded in original user research — Becky Berg (2025)</span>
+      </div>
+    </div>
+  </header>
+
+  
+  <!-- API KEY BAR -->
+  <div class="api-key-bar" id="api-key-bar">
+    <span class="api-key-label">🔑 OpenAI API Key</span>
+    <input type="password" id="api-key-input" placeholder="sk-proj-..." />
+    <button class="btn btn-save" id="save-key-btn">Save</button>
+    <span id="key-status" class="key-status"></span>
+  </div>
+
+  <main>
+
+    <aside class="panel panel-left">
+
+      <section class="card">
+        <h2>📋 Load a Research Scenario</h2>
+        <p class="card-desc">Each scenario illustrates a different signal pattern identified in the study.</p>
+        <div id="scenario-buttons" class="scenario-list"></div>
+      </section>
+
+      <section class="card profile-card" id="profile-a-card">
+        <h2>👤 User A — <span id="nameA">—</span></h2>
+        <div class="profile-field"><label>Bio</label><p id="bioA" class="field-val">—</p></div>
+        <div class="profile-field"><label id="p1qA">Prompt</label><p id="p1aA" class="field-val">—</p></div>
+        <div class="profile-field"><label id="p2qA">Prompt</label><p id="p2aA" class="field-val">—</p></div>
+        <div class="profile-chips">
+          <span class="chip goal-chip" id="goalA">—</span>
+        </div>
+        <div class="profile-chips">
+          <span class="chip interest-chip" id="interestsA">—</span>
+        </div>
+      </section>
+
+      <section class="card profile-card" id="profile-b-card">
+        <h2>👤 User B — <span id="nameB">—</span></h2>
+        <div class="profile-field"><label>Bio</label><p id="bioB" class="field-val">—</p></div>
+        <div class="profile-field"><label id="p1qB">Prompt</label><p id="p1aB" class="field-val">—</p></div>
+        <div class="profile-field"><label id="p2qB">Prompt</label><p id="p2aB" class="field-val">—</p></div>
+        <div class="profile-chips">
+          <span class="chip goal-chip" id="goalB">—</span>
+        </div>
+        <div class="profile-chips">
+          <span class="chip interest-chip" id="interestsB">—</span>
+        </div>
+      </section>
+
+    </aside>
+
+    <section class="panel panel-center">
+      <div class="chat-header">
+        <h2>💬 Conversation</h2>
+        <p id="chat-subtitle" class="card-desc">Load a scenario to see the conversation</p>
+      </div>
+
+      <div id="chat-window" class="chat-window">
+        <div class="chat-empty">
+          <span>👆</span>
+          <p>Select a research scenario to load a conversation</p>
+        </div>
+      </div>
+
+      <div class="message-composer" id="message-composer" style="display:none">
+        <select id="sender-select">
+          <option value="A">User A</option>
+          <option value="B">User B</option>
+        </select>
+        <input type="text" id="message-input" placeholder="Add a message and re-run the agent..." />
+        <button id="send-btn" class="btn btn-secondary">Send + Analyze</button>
+      </div>
+
+      <div class="analyze-bar">
+        <button id="analyze-btn" class="btn btn-primary" disabled>
+          🔍 Run Consistency Coach
+        </button>
+        <span id="analyze-status" class="status-text"></span>
+      </div>
+    </section>
+
+    <aside class="panel panel-right">
+      <div class="agent-header">
+        <h2>🤖 Agent Analysis</h2>
+        <p class="card-desc">The agent's live assessment will appear here</p>
+      </div>
+
+      <section class="card assessment-card" id="consistency-card">
+        <div class="assessment-header">
+          <h3>Profile → Conversation Consistency</h3>
+          <span class="score-badge" id="consistency-score">—</span>
+        </div>
+        <div id="consistency-signals" class="signal-list"></div>
+        <div id="consistency-flags" class="flag-list"></div>
+        <p id="consistency-summary" class="assessment-summary">Run the agent to see analysis</p>
+      </section>
+
+      <section class="card assessment-card" id="readiness-card">
+        <div class="assessment-header">
+          <h3>Mutual Readiness to Meet</h3>
+        </div>
+        <div class="readiness-indicators">
+          <div class="readiness-user">
+            <span id="ready-a-icon">⬜</span>
+            <span id="ready-a-label">User A — not yet assessed</span>
+          </div>
+          <div class="readiness-user">
+            <span id="ready-b-icon">⬜</span>
+            <span id="ready-b-label">User B — not yet assessed</span>
+          </div>
+        </div>
+        <div id="readiness-signals" class="signal-list"></div>
+        <p id="readiness-summary" class="assessment-summary">Run the agent to see analysis</p>
+      </section>
+
+      <section class="card action-card" id="action-card">
+        <div class="assessment-header">
+          <h3>Agent Action</h3>
+          <span class="action-type-badge" id="action-type-badge">waiting</span>
+        </div>
+        <div id="agent-message-box" class="agent-message-box">
+          <p id="agent-message">The agent will surface a message here when it detects the right moment.</p>
+        </div>
+        <div id="meeting-suggestion-box" class="meeting-box" style="display:none">
+          <div class="meeting-header">📅 Suggested Next Step</div>
+          <p id="meeting-format">—</p>
+          <div class="safety-tip">
+            <span>🔒</span>
+            <p id="safety-reminder">—</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card research-card">
+        <h3>📖 Research Signal Framework</h3>
+        <p class="card-desc">Derived from "Bridging the Gap from Swiping to IRL" — Berg (2025)</p>
+        <div class="signal-key">
+          <div class="signal-group">
+            <strong>🟢 Authenticity Signals</strong>
+            <ul>
+              <li>Personal, specific stories</li>
+              <li>Humor consistent with profile</li>
+              <li>Natural vulnerability</li>
+              <li>Reciprocal curiosity</li>
+              <li>Forward momentum</li>
+            </ul>
+          </div>
+          <div class="signal-group">
+            <strong>🔴 Concern Signals</strong>
+            <ul>
+              <li>Telling people what they want to hear</li>
+              <li>No conversational reciprocity</li>
+              <li>Generic, cookie-cutter responses</li>
+              <li>Profile-conversation mismatch</li>
+              <li>Hidden agenda patterns</li>
+            </ul>
+          </div>
+          <div class="signal-group">
+            <strong>🟡 Readiness Cues</strong>
+            <ul>
+              <li>Future-oriented language</li>
+              <li>Logistics surfacing naturally</li>
+              <li>Explicit meeting interest</li>
+              <li>Sustained engagement depth</li>
+            </ul>
+          </div>
+        </div>
+        <div class="research-stat">
+          <strong>62%</strong> of study participants cited <em>"quality of conversation"</em> as the #1 factor in deciding to meet in person.
+        </div>
+      </section>
+
+    </aside>
+
+  </main>
+
+  <footer>
+    <p>Consistency Coach — Portfolio Prototype &nbsp;|&nbsp; Research: Becky Berg (2025) &nbsp;|&nbsp;
+    <a href="https://dating.beckyberg.com" target="_blank">dating.beckyberg.com</a></p>
+  </footer>
+
+  <script src="analyze.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,394 @@
+/* ============================================================
+   CONSISTENCY COACH — Frontend App Logic
+   Portfolio Prototype — Becky Berg (2025)
+   ============================================================ */
+
+let currentScenario = null;
+let currentProfiles = null;
+let currentConversation = [];
+let nameA = 'User A';
+let nameB = 'User B';
+
+// ---- INIT ----
+let savedApiKey = localStorage.getItem('cc_openai_key') || '';
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadScenarios();
+  document.getElementById('analyze-btn').addEventListener('click', runAnalysis);
+  document.getElementById('send-btn').addEventListener('click', sendMessage);
+  document.getElementById('message-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendMessage();
+  });
+
+  // API key bar
+  const keyInput = document.getElementById('api-key-input');
+  const saveBtn  = document.getElementById('save-key-btn');
+  const keyStatus = document.getElementById('key-status');
+
+  if (savedApiKey) {
+    keyInput.value = savedApiKey;
+    keyStatus.textContent = '✅ Key loaded';
+    keyStatus.className = 'key-status key-ok';
+  }
+
+  saveBtn.addEventListener('click', () => {
+    savedApiKey = keyInput.value.trim();
+    localStorage.setItem('cc_openai_key', savedApiKey);
+    keyStatus.textContent = savedApiKey ? '✅ Key saved' : '⚠️ No key entered';
+    keyStatus.className = savedApiKey ? 'key-status key-ok' : 'key-status key-warn';
+  });
+});
+
+// ---- LOAD SCENARIOS ----
+async function loadScenarios() {
+  // Hardcoded so buttons always appear regardless of fetch/proxy issues
+  const scenarios = [
+    { key: 'high_consistency',     label: 'High Consistency — Readiness Building',    description: 'Both users show strong profile-to-conversation alignment and early readiness signals' },
+    { key: 'low_consistency',      label: 'Low Consistency — Concern Signals',         description: "User B's conversation shows misalignment signals compared to their profile" },
+    { key: 'moderate_consistency', label: 'Moderate Consistency — Potential Building', description: 'Genuine connection emerging but one user is still holding back' }
+  ];
+  const container = document.getElementById('scenario-buttons');
+  container.innerHTML = '';
+  scenarios.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'scenario-btn';
+    btn.dataset.key = s.key;
+    btn.innerHTML = '<span class="s-label">' + s.label + '</span><span class="s-desc">' + s.description + '</span>';
+    btn.addEventListener('click', () => loadScenario(s.key, btn));
+    container.appendChild(btn);
+  });
+}
+
+// ---- EMBEDDED SCENARIO DATA (no fetch dependency) ----
+const SCENARIOS = {
+  high_consistency: {
+    label: "High Consistency — Readiness Building",
+    description: "Both users show strong profile-to-conversation alignment and early readiness signals",
+    profileA: {
+      name: "Jordan", bio: "Grad student in environmental science. I spend weekends hiking or at the farmer's market. Looking for someone genuine to explore the city with.",
+      prompt1: { question: "The most important thing I'm looking for", answer: "Someone who actually means what they say. I've been on enough dates to know the difference between someone performing and someone being real." },
+      prompt2: { question: "A typical Saturday looks like", answer: "Morning run, then the farmer's market on 5th. I always end up buying too many heirloom tomatoes. Afternoons are for reading or a long hike if the weather cooperates." },
+      goal: "Long-term relationship", interests: "Hiking, cooking, environmental advocacy, reading"
+    },
+    profileB: {
+      name: "Sam", bio: "I teach middle school science and I love it more than I expected to. Weekends I'm usually outdoors or trying a new recipe. Genuine connection > small talk.",
+      prompt1: { question: "I want someone who", answer: "Has actual opinions and isn't afraid to share them. The best conversations I've had start with a disagreement." },
+      prompt2: { question: "My love language is", answer: "Quality time — but the unplanned kind. Not a fancy dinner reservation, more like ending up at a bookstore for two hours." },
+      goal: "Long-term relationship", interests: "Teaching, science, outdoor cooking, bookstores, hiking"
+    },
+    conversation: [
+      { sender: "Jordan", text: "Ok your farmer's market comment made me laugh — I also always over-buy. Last week it was four bunches of basil. What am I doing with four bunches of basil?" },
+      { sender: "Sam",    text: "Ha! Pesto. The answer is always pesto. Also basil ice cream is surprisingly good if you're feeling ambitious." },
+      { sender: "Jordan", text: "That's either genius or a crime and I genuinely can't tell which. Do you actually cook or is this theoretical kitchen knowledge?" },
+      { sender: "Sam",    text: "Fully functional kitchen, I promise. Though I have had a few disasters. Made a soup so spicy last month my roommate genuinely cried. What about you — is the cooking real or farmer's market aesthetic?" },
+      { sender: "Jordan", text: "Real, definitely real. I grew up cooking with my dad, so it's kind of a thing for me. We used to do Sunday dinners every week. I miss that honestly." },
+      { sender: "Sam",    text: "That's really nice — Sunday dinners are underrated. My family did Taco Tuesdays which sounds less romantic but honestly still one of my favorite memories." },
+      { sender: "Jordan", text: "There's something about a recurring ritual, right? Ok this might be forward but — have you been to the farmers market on Clement Street? I was thinking about going this Sunday and it seemed like maybe a low-key good first thing to do together." },
+      { sender: "Sam",    text: "I haven't but I've been meaning to go! Sunday works. I like that it's low-pressure — we can see if the basil conversation translates to real life." }
+    ]
+  },
+  low_consistency: {
+    label: "Low Consistency — Concern Signals",
+    description: "User B's conversation behavior shows several misalignment signals compared to their profile",
+    profileA: {
+      name: "Alex", bio: "Writer and weekend rock climber. I value honesty and deep conversations. Not here for small talk.",
+      prompt1: { question: "The most important thing I'm looking for", answer: "Real conversation. Someone who asks follow-up questions and actually listens to the answers." },
+      prompt2: { question: "I'll know it's the right person if", answer: "We can sit in comfortable silence AND talk for four hours. Both." },
+      goal: "Long-term relationship", interests: "Writing, rock climbing, philosophy, independent film"
+    },
+    profileB: {
+      name: "Riley", bio: "Outdoor enthusiast, dog dad, looking for something real. I work in finance but don't let that fool you — I spend more time outside than inside.",
+      prompt1: { question: "I'm known for", answer: "Being the person who actually shows up. Loyalty is everything to me. I'd rather have three real friends than thirty acquaintances." },
+      prompt2: { question: "The way to my heart is", answer: "Be genuine. I can spot fake from a mile away and it's the fastest way to lose my interest." },
+      goal: "Long-term relationship", interests: "Hiking, dogs, climbing, travel"
+    },
+    conversation: [
+      { sender: "Alex",  text: "Hey! Your profile mentioned rock climbing — do you boulder or do more trad/sport routes?" },
+      { sender: "Riley", text: "Hey! Yeah I love climbing. It's so fun right?" },
+      { sender: "Alex",  text: "Ha yeah — I mostly boulder but I've been wanting to try outdoor sport climbing. Have you done any routes around here?" },
+      { sender: "Riley", text: "Yeah totally, there are some great spots. You seem really cool by the way." },
+      { sender: "Alex",  text: "Thanks! What made you get into climbing originally? I got into it through a friend and kind of got obsessed." },
+      { sender: "Riley", text: "Oh you know how it is, just tried it one day and loved it. You're really pretty in your photos by the way." },
+      { sender: "Alex",  text: "...thanks. So do you have any other big interests outside of climbing? Your profile mentioned you have a dog?" },
+      { sender: "Riley", text: "Yeah I love my dog! He's so great. Hey do you want to meet up sometime? I feel like we have great chemistry." }
+    ]
+  },
+  moderate_consistency: {
+    label: "Moderate Consistency — Potential Building",
+    description: "Genuine connection emerging but one user is still holding back — consistency building over time",
+    profileA: {
+      name: "Taylor", bio: "Nurse practitioner. I work hard and I play hard. Love live music, good food, and honest people. A little guarded at first but worth the patience.",
+      prompt1: { question: "A non-negotiable for me is", answer: "Emotional honesty. I deal with enough performance at work — I don't want it in my personal life too." },
+      prompt2: { question: "My ideal Sunday", answer: "Farmers market, live jazz somewhere, maybe a long walk. Nothing scheduled, everything meandering." },
+      goal: "Open to either casual or serious", interests: "Live music, nursing, cooking, hiking, jazz"
+    },
+    profileB: {
+      name: "Morgan", bio: "Software engineer by day, amateur chef by night. I'm probably too passionate about coffee. Looking for someone to have real conversations with.",
+      prompt1: { question: "I get too excited about", answer: "Coffee origins. I know it's a lot. I went to Ethiopia last year specifically to visit coffee farms and I have zero regrets." },
+      prompt2: { question: "The best type of date is", answer: "Something we both didn't plan on. Walk that turns into dinner that turns into a long conversation neither of us expected." },
+      goal: "Long-term relationship", interests: "Cooking, coffee, software, travel, hiking"
+    },
+    conversation: [
+      { sender: "Morgan", text: "Ethiopia for coffee farms — yes. That's dedication I respect. Are you also a coffee person or is that going to be a dealbreaker?" },
+      { sender: "Taylor", text: "Haha I'm a nurse so I'm basically an IV drip of caffeine walking around. I appreciate good coffee but I'm not as serious about it as you clearly are." },
+      { sender: "Morgan", text: "Fair. I promise I won't quiz you on origin notes. What's your usual order?" },
+      { sender: "Taylor", text: "Whatever keeps me awake during a 12-hour shift honestly. But outside of work — a good pour over. Something simple." },
+      { sender: "Morgan", text: "That's actually perfect. Simple pour over taste = good taste. Do you work nights or days?" },
+      { sender: "Taylor", text: "Rotating shifts currently. It's a lot but I love the actual work." },
+      { sender: "Morgan", text: "That takes a certain kind of person. I've always had a lot of respect for nurses — especially the honesty it probably requires to do that job every day." },
+      { sender: "Taylor", text: "Yeah. It does make you less tolerant of pretense in other parts of your life. Anyway — your profile mentioned you were into live music?" }
+    ]
+  }
+};
+
+// ---- LOAD SCENARIO ----
+async function loadScenario(key, btn) {
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const scenario = SCENARIOS[key];
+  if (!scenario) { console.error('Unknown scenario:', key); return; }
+
+  currentScenario = key;
+  currentProfiles = { a: scenario.profileA, b: scenario.profileB };
+  currentConversation = [...scenario.conversation];
+  nameA = scenario.profileA.name;
+  nameB = scenario.profileB.name;
+
+  renderProfile('A', scenario.profileA);
+  renderProfile('B', scenario.profileB);
+  renderConversation(scenario.conversation, scenario.profileA.name, scenario.profileB.name);
+
+  document.getElementById('chat-subtitle').textContent = scenario.description;
+  document.getElementById('analyze-btn').disabled = false;
+  document.getElementById('message-composer').style.display = 'flex';
+
+  resetAnalysisPanel();
+  setStatus('', '');
+}
+
+// ---- RENDER PROFILE ----
+function renderProfile(side, profile) {
+  const s = side;
+  document.getElementById(`name${s}`).textContent = profile.name;
+  document.getElementById(`bio${s}`).textContent = `"${profile.bio}"`;
+  document.getElementById(`p1q${s}`).textContent = profile.prompt1.question;
+  document.getElementById(`p1a${s}`).textContent = `"${profile.prompt1.answer}"`;
+  document.getElementById(`p2q${s}`).textContent = profile.prompt2.question;
+  document.getElementById(`p2a${s}`).textContent = `"${profile.prompt2.answer}"`;
+  document.getElementById(`goal${s}`).textContent = `🎯 ${profile.goal}`;
+  document.getElementById(`interests${s}`).textContent = `✨ ${profile.interests}`;
+}
+
+// ---- RENDER CONVERSATION ----
+function renderConversation(messages, nameA, nameB) {
+  const win = document.getElementById('chat-window');
+  win.innerHTML = '';
+  messages.forEach(m => appendBubble(win, m, nameA, nameB, false));
+  win.scrollTop = win.scrollHeight;
+}
+
+function appendBubble(win, msg, nA, nB, isNew) {
+  const isA = msg.sender === nA || msg.sender === 'A';
+  const senderName = msg.sender === 'A' ? nA : msg.sender === 'B' ? nB : msg.sender;
+  const wrap = document.createElement('div');
+  wrap.className = `bubble-wrap ${isA ? 'from-a' : 'from-b'}${isNew ? ' bubble-new' : ''}`;
+  wrap.innerHTML = `
+    <span class="bubble-sender">${senderName}</span>
+    <div class="bubble">${escapeHTML(msg.text)}</div>
+  `;
+  win.appendChild(wrap);
+}
+
+// ---- SEND MESSAGE ----
+function sendMessage() {
+  const input = document.getElementById('message-input');
+  const senderSel = document.getElementById('sender-select').value;
+  const text = input.value.trim();
+  if (!text || !currentProfiles) return;
+
+  const senderName = senderSel === 'A' ? nameA : nameB;
+  const newMsg = { sender: senderName, text };
+  currentConversation.push(newMsg);
+
+  const win = document.getElementById('chat-window');
+  appendBubble(win, newMsg, nameA, nameB, true);
+  win.scrollTop = win.scrollHeight;
+  input.value = '';
+
+  // Auto-run analysis
+  runAnalysis();
+}
+
+// ---- RUN ANALYSIS ----
+async function runAnalysis() {
+  if (!currentProfiles) return;
+
+  const apiKey = savedApiKey || localStorage.getItem('cc_openai_key') || '';
+  if (!apiKey) {
+    setStatus('Enter your OpenAI API key above first', 'error');
+    document.getElementById('api-key-input').focus();
+    return;
+  }
+
+  setStatus('Analyzing...', 'loading');
+  document.getElementById('analyze-btn').disabled = true;
+
+  try {
+    const result = await analyzeWithOpenAI(apiKey, currentProfiles.a, currentProfiles.b, currentConversation);
+    renderAnalysis(result);
+    setStatus('Analysis complete ✓', 'success');
+  } catch (err) {
+    setStatus('Error: ' + err.message, 'error');
+    console.error(err);
+  } finally {
+    document.getElementById('analyze-btn').disabled = false;
+  }
+}
+
+// ---- RENDER ANALYSIS ----
+function renderAnalysis(result) {
+  // Show mock warning if needed
+  const existingWarning = document.querySelector('.mock-warning');
+  if (existingWarning) existingWarning.remove();
+
+  if (result.mock) {
+    const warning = document.createElement('div');
+    warning.className = 'mock-warning';
+    warning.textContent = '⚠️ ' + result.message;
+    document.querySelector('.agent-header').after(warning);
+  }
+
+  const ca = result.consistency_assessment;
+  const ra = result.readiness_assessment;
+  const aa = result.agent_action;
+
+  if (ca) renderConsistency(ca);
+  if (ra) renderReadiness(ra);
+  if (aa) renderAction(aa);
+}
+
+function renderConsistency(ca) {
+  // Score badge
+  const badge = document.getElementById('consistency-score');
+  badge.textContent = ca.score || '—';
+  badge.className = 'score-badge';
+  if (ca.score === 'high') badge.classList.add('score-high');
+  else if (ca.score === 'moderate') badge.classList.add('score-moderate');
+  else if (ca.score === 'low') badge.classList.add('score-low');
+  else badge.classList.add('score-default');
+
+  // Signals
+  const sigList = document.getElementById('consistency-signals');
+  sigList.innerHTML = '';
+  (ca.signals_detected || []).forEach(s => {
+    const item = document.createElement('div');
+    item.className = 'signal-item signal-green';
+    item.innerHTML = `<span>✓</span><span>${escapeHTML(s)}</span>`;
+    sigList.appendChild(item);
+  });
+
+  // Flags
+  const flagList = document.getElementById('consistency-flags');
+  flagList.innerHTML = '';
+  (ca.flags || []).forEach(f => {
+    if (!f || f.toLowerCase().includes('api key')) return;
+    const item = document.createElement('div');
+    item.className = 'signal-item signal-red';
+    item.innerHTML = `<span>!</span><span>${escapeHTML(f)}</span>`;
+    flagList.appendChild(item);
+  });
+
+  // Summary
+  document.getElementById('consistency-summary').textContent = ca.summary || '';
+}
+
+function renderReadiness(ra) {
+  // User A
+  document.getElementById('ready-a-icon').textContent = ra.user_a_ready ? '✅' : '⬜';
+  document.getElementById('ready-a-label').textContent = `${nameA} — ${ra.user_a_ready ? 'showing readiness cues' : 'not yet showing readiness'}`;
+  // User B
+  document.getElementById('ready-b-icon').textContent = ra.user_b_ready ? '✅' : '⬜';
+  document.getElementById('ready-b-label').textContent = `${nameB} — ${ra.user_b_ready ? 'showing readiness cues' : 'not yet showing readiness'}`;
+
+  // Signals
+  const sigList = document.getElementById('readiness-signals');
+  sigList.innerHTML = '';
+  (ra.readiness_signals || []).forEach(s => {
+    if (!s || s.toLowerCase().includes('api key')) return;
+    const item = document.createElement('div');
+    item.className = 'signal-item signal-yellow';
+    item.innerHTML = `<span>→</span><span>${escapeHTML(s)}</span>`;
+    sigList.appendChild(item);
+  });
+
+  document.getElementById('readiness-summary').textContent = ra.summary || '';
+}
+
+function renderAction(aa) {
+  const badge = document.getElementById('action-type-badge');
+  const msgBox = document.getElementById('agent-message-box');
+  const msgEl = document.getElementById('agent-message');
+  const meetingBox = document.getElementById('meeting-suggestion-box');
+
+  // Action type badge
+  badge.textContent = aa.action_type || 'none';
+  if (aa.should_act && aa.action_type !== 'none') {
+    badge.className = 'action-type-badge action-active';
+    msgBox.className = 'agent-message-box agent-message-active';
+  } else {
+    badge.className = 'action-type-badge';
+    msgBox.className = 'agent-message-box';
+  }
+
+  // Agent message
+  msgEl.textContent = aa.message_to_user || 'No action at this time.';
+  msgEl.style.fontStyle = aa.should_act ? 'normal' : 'italic';
+
+  // Meeting suggestion
+  if (aa.meeting_suggestion && aa.meeting_suggestion.active) {
+    meetingBox.style.display = 'block';
+    document.getElementById('meeting-format').textContent = aa.meeting_suggestion.suggested_format || '';
+    document.getElementById('safety-reminder').textContent = aa.meeting_suggestion.safety_reminder || '';
+  } else {
+    meetingBox.style.display = 'none';
+  }
+}
+
+// ---- RESET ----
+function resetAnalysisPanel() {
+  document.getElementById('consistency-score').textContent = '—';
+  document.getElementById('consistency-score').className = 'score-badge score-default';
+  document.getElementById('consistency-signals').innerHTML = '';
+  document.getElementById('consistency-flags').innerHTML = '';
+  document.getElementById('consistency-summary').textContent = 'Run the agent to see analysis';
+  document.getElementById('ready-a-icon').textContent = '⬜';
+  document.getElementById('ready-b-icon').textContent = '⬜';
+  document.getElementById('ready-a-label').textContent = 'User A — not yet assessed';
+  document.getElementById('ready-b-label').textContent = 'User B — not yet assessed';
+  document.getElementById('readiness-signals').innerHTML = '';
+  document.getElementById('readiness-summary').textContent = 'Run the agent to see analysis';
+  document.getElementById('action-type-badge').textContent = 'waiting';
+  document.getElementById('action-type-badge').className = 'action-type-badge';
+  document.getElementById('agent-message-box').className = 'agent-message-box';
+  document.getElementById('agent-message').textContent = 'The agent will surface a message here when it detects the right moment.';
+  document.getElementById('meeting-suggestion-box').style.display = 'none';
+  const warning = document.querySelector('.mock-warning');
+  if (warning) warning.remove();
+}
+
+// ---- HELPERS ----
+function setStatus(msg, type) {
+  const el = document.getElementById('analyze-status');
+  el.textContent = msg;
+  el.className = `status-text ${type}`;
+}
+
+function escapeHTML(str) {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
