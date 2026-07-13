@@ -425,13 +425,9 @@ function switchMode(mode) {
     document.getElementById('chat-subtitle').textContent = 'Imported conversation — anonymized';
     document.getElementById('message-composer').style.display = 'none';
     document.getElementById('analyze-btn').disabled = true;
-    // Hide profile cards in import mode
-    document.getElementById('profile-a-card').style.display = 'none';
-    document.getElementById('profile-b-card').style.display = 'none';
+    // Keep profile cards visible; populate with import placeholders
+    renderImportProfileCards('', '');
     resetAnalysisPanel();
-  } else {
-    document.getElementById('profile-a-card').style.display = '';
-    document.getElementById('profile-b-card').style.display = '';
   }
 }
 
@@ -497,6 +493,9 @@ function previewImport() {
 
   importedConversation = parsed;
   importYourName = yourName;
+
+  // Update profile cards with real names now that we have them
+  renderImportProfileCards(yourName, matchName);
 
   // Render anonymized preview in chat window
   const win = document.getElementById('chat-window');
@@ -600,4 +599,29 @@ function showImportStatus(msg, type) {
   const el = document.getElementById('import-status');
   el.textContent = msg;
   el.className = 'import-status status-' + type;
+}
+
+
+// ---- RENDER IMPORT PROFILE CARDS ----
+// Keeps the User A / User B cards visible in import mode with placeholder info
+function renderImportProfileCards(yourName, matchName) {
+  // Card A — you
+  document.getElementById('nameA').textContent = yourName || 'You';
+  document.getElementById('bioA').textContent = 'Profile not submitted — analysis based on conversation only.';
+  document.getElementById('p1qA').textContent = 'Import mode';
+  document.getElementById('p1aA').textContent = 'Consistency signals will be inferred from your conversation patterns.';
+  document.getElementById('p2qA').textContent = '';
+  document.getElementById('p2aA').textContent = '';
+  document.getElementById('goalA').textContent = '🎯 Not specified';
+  document.getElementById('interestsA').textContent = '';
+
+  // Card B — your match
+  document.getElementById('nameB').textContent = 'Your Match';
+  document.getElementById('bioB').textContent = 'Profile not submitted — analysis based on conversation only.';
+  document.getElementById('p1qB').textContent = 'Import mode';
+  document.getElementById('p1aB').textContent = 'Authenticity signals will be inferred from message specificity, reciprocity, and engagement depth.';
+  document.getElementById('p2qB').textContent = '';
+  document.getElementById('p2aB').textContent = '';
+  document.getElementById('goalB').textContent = '🎯 Not specified';
+  document.getElementById('interestsB').textContent = '';
 }
