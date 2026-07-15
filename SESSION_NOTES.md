@@ -1,5 +1,5 @@
 # Consistency Coach — Session Notes
-**Last updated:** July 13, 2026  
+**Last updated:** July 15, 2026  
 **Researcher:** Becky Berg  
 **Portfolio project for:** Dating outcomes / trust & safety researcher roles at dating app companies
 
@@ -83,7 +83,7 @@ Lives in `/public/analyze.js`. This is the most research-critical file — every
 
 ## 📦 Version History
 
-### v1.0 — Current (Baseline Portfolio Prototype)
+### v1.0 — Baseline Portfolio Prototype
 **Tag:** `v1.0`  
 **Commit:** `f3490a2`  
 **Features:**
@@ -102,6 +102,62 @@ Lives in `/public/analyze.js`. This is the most research-critical file — every
 cd /workspace/consistency-coach
 git checkout v1.0
 ```
+
+---
+
+### v1.1 — Conversation Import
+**Branch:** `feature/conversation-import`  
+**Latest commit:** `e48a82d`  
+**Features:**
+- Import tab alongside Demo Scenarios tab
+- 3-step import form: your name → match name → paste conversation
+- Auto-anonymization: match name replaced with "Your Match" everywhere (including inline mentions)
+- Disclosure notice with explicit consent checkbox before any analysis runs
+- No storage — conversation exists only in transit to OpenAI
+- Profile cards stay visible in import mode (populated with import-mode placeholder text)
+
+---
+
+### v2.0 — Prompt Architecture Overhaul (same branch)
+**Design decisions made July 15, 2026 — full structured prompt review session**
+
+#### Two-Layer Architecture
+- **Layer 1 — Dyadic assessment:** neutral, relational — the interaction is the unit of analysis, not either person in isolation
+- **Layer 2 — Coaching output:** user-facing, three lenses: About Your Match / How You Are Showing Up / Where This Is Heading
+
+#### Key Design Decisions (all deliberate)
+- **No concern_level metric** — complexity stays in prose, no scalar score for the match. Avoids users over-relying on a number that boxes something complex.
+- **Asymmetric coaching voice:** match assessed directly and clearly; user assessed lightly, suggestively, invitionally — never verdict language
+- **Safety observations woven into prose** — no separate warning card. Integrated into "About Your Match" coaching text, tone shifts naturally from warm → cautionary → safety-toned based on signals.
+- **Option B meeting suggestions** — conversation-grounded, never generic ("coffee or a walk"). Agent references what came up specifically between these two people. User decides logistics.
+
+#### Three-Tier Data Sufficiency System
+| Tier | Threshold | Behavior |
+|---|---|---|
+| Insufficient | Under 6 messages OR no substantive exchange | "Keep going" message only — no analysis |
+| Thin | 6–9 messages (client-side count) | Full analysis + yellow caveat banner — NO meeting suggestion |
+| Full | 10+ messages | Complete analysis, meeting suggestion can fire |
+
+**Important:** Meeting suggestion is suppressed at both prompt level AND client-side guard in thin-data state.
+
+#### New Right Panel Structure (replaces v1 cards)
+- **About Your Match** — direct assessment prose + match signal chips
+- **How You Are Showing Up** — light observational prose + your signal chips + relational pattern in italics
+- **Where This Is Heading** — combined readiness read + meeting suggestion box (when earned)
+
+#### 6 Test Conversations Built (July 15, 2026)
+All use Becky as the user name for import mode testing:
+
+| # | Match | Consistency | Length | Key signal |
+|---|---|---|---|---|
+| 1 | Marcus | High | 16 msgs | Meeting suggestion should fire, conversation-grounded |
+| 2 | Daniel | Medium | 10 msgs | Partial engagement, deflects personal depth |
+| 3 | Ryan | Low | 8 msgs | Profile-conversation mismatch |
+| 4 | Chris | Red flag | 8 msgs | "Saying what they want to hear" signal |
+| 5 | Tom | Medium-thin | 6 msgs | Thin-data yellow banner, NO meeting suggestion |
+| 6 | Nate | High-insufficient | 3 msgs | Insufficient data message only |
+
+All 6 tested and confirmed working correctly as of July 15, 2026.
 
 ---
 
@@ -190,13 +246,14 @@ node server.js
 ### Opening the App
 - Launch preview on port 3000
 - Enter OpenAI API key in the key bar at the top
-- Click a scenario → Click "🔍 Run Consistency Coach"
+- Demo mode: click a scenario → click "🔍 Run Consistency Coach"
+- Import mode: click "📥 Import Conversation" tab → fill in names → paste conversation → Preview & Anonymize → check consent box → Run
 
-### Starting v1.1 Development
+### Current Branch
 ```bash
 cd /workspace/consistency-coach
-git checkout -b feature/conversation-import
-# Then ask agent mom to build the import feature
+git checkout feature/conversation-import
+git log --oneline -5  # see recent commits
 ```
 
 ### Pushing Changes to GitHub
@@ -204,12 +261,23 @@ git checkout -b feature/conversation-import
 # Get a fresh GitHub token from github.com/settings/tokens first
 cd /workspace/consistency-coach
 git remote set-url origin https://YOUR_NEW_TOKEN@github.com/beckyberg/consistency-coach.git
-git add -A
-git commit -m "v1.1 — conversation import feature"
-git push origin master
-git tag v1.1 && git push origin v1.1
-git remote set-url origin https://github.com/beckyberg/consistency-coach.git  # remove token
+git push origin feature/conversation-import
+git remote set-url origin https://github.com/beckyberg/consistency-coach.git  # remove token immediately
 ```
+
+### Merging to Master + Tagging v1.1
+```bash
+git checkout master
+git merge feature/conversation-import
+git tag v1.1 && git push origin master && git push origin v1.1
+```
+
+### What to Work on Next (Priority Order)
+1. **Run all 6 test conversations and document observations** — empirical log for portfolio
+2. **Deploy** — `mom deploy` → get public HTTPS URL → generate QR code for beta testing
+3. **Mobile responsive layout** — single-column redesign for phone, device-detection for feature splits
+4. **Profile screenshot import** — drag-and-drop GPT-4o vision extraction
+5. **v1.2 Safety checklist** — surfaces when meeting suggestion fires
 
 ---
 
