@@ -248,90 +248,120 @@ async function runAnalysis() {
 
 // ---- RENDER ANALYSIS ----
 function renderAnalysis(result) {
-  // Show mock warning if needed
   const existingWarning = document.querySelector('.mock-warning');
   if (existingWarning) existingWarning.remove();
 
-  if (result.mock) {
-    const warning = document.createElement('div');
-    warning.className = 'mock-warning';
-    warning.textContent = '⚠️ ' + result.message;
-    document.querySelector('.agent-header').after(warning);
+  // INSUFFICIENT DATA
+  if (result.insufficient_data) {
+    renderInsufficientData(result.message);
+    return;
   }
 
-  const ca = result.consistency_assessment;
-  const ra = result.readiness_assessment;
-  const aa = result.agent_action;
+  const da  = result.dyadic_assessment;
+  const co  = result.coaching_output;
+  const aa  = result.agent_action;
+  const thin = result.data_sufficient === false;
 
-  if (ca) renderConsistency(ca);
-  if (ra) renderReadiness(ra);
+  if (da && co) renderCoaching(da, co, thin);
   if (aa) renderAction(aa);
 }
 
-function renderConsistency(ca) {
-  // Score badge
-  const badge = document.getElementById('consistency-score');
-  badge.textContent = ca.score || '—';
-  badge.className = 'score-badge';
-  if (ca.score === 'high') badge.classList.add('score-high');
-  else if (ca.score === 'moderate') badge.classList.add('score-moderate');
-  else if (ca.score === 'low') badge.classList.add('score-low');
-  else badge.classList.add('score-default');
-
-  // Signals
-  const sigList = document.getElementById('consistency-signals');
-  sigList.innerHTML = '';
-  (ca.signals_detected || []).forEach(s => {
-    const item = document.createElement('div');
-    item.className = 'signal-item signal-green';
-    item.innerHTML = `<span>✓</span><span>${escapeHTML(s)}</span>`;
-    sigList.appendChild(item);
+// ---- INSUFFICIENT DATA STATE ----
+function renderInsufficientData(msg) {
+  // Coaching cards
+  ['match-card', 'you-card', 'heading-card'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.opacity = '0.4';
   });
-
-  // Flags
-  const flagList = document.getElementById('consistency-flags');
-  flagList.innerHTML = '';
-  (ca.flags || []).forEach(f => {
-    if (!f || f.toLowerCase().includes('api key')) return;
-    const item = document.createElement('div');
-    item.className = 'signal-item signal-red';
-    item.innerHTML = `<span>!</span><span>${escapeHTML(f)}</span>`;
-    flagList.appendChild(item);
-  });
-
-  // Summary
-  document.getElementById('consistency-summary').textContent = ca.summary || '';
+  const insufficientEl = document.getElementById('insufficient-notice');
+  if (insufficientEl) {
+    insufficientEl.style.display = 'block';
+    insufficientEl.textContent = msg || "There isn't enough conversation here yet for a meaningful read. Keep going — I'll have more to say once the conversation develops.";
+  }
+  // Reset action card
+  document.getElementById('action-type-badge').textContent = 'waiting';
+  document.getElementById('action-type-badge').className = 'action-type-badge';
+  document.getElementById('agent-message').textContent = 'Keep the conversation going.';
+  document.getElementById('agent-message').style.fontStyle = 'italic';
+  document.getElementById('meeting-suggestion-box').style.display = 'none';
 }
 
-function renderReadiness(ra) {
-  // User A
-  document.getElementById('ready-a-icon').textContent = ra.user_a_ready ? '✅' : '⬜';
-  document.getElementById('ready-a-label').textContent = `${nameA} — ${ra.user_a_ready ? 'showing readiness cues' : 'not yet showing readiness'}`;
-  // User B
-  document.getElementById('ready-b-icon').textContent = ra.user_b_ready ? '✅' : '⬜';
-  document.getElementById('ready-b-label').textContent = `${nameB} — ${ra.user_b_ready ? 'showing readiness cues' : 'not yet showing readiness'}`;
-
-  // Signals
-  const sigList = document.getElementById('readiness-signals');
-  sigList.innerHTML = '';
-  (ra.readiness_signals || []).forEach(s => {
-    if (!s || s.toLowerCase().includes('api key')) return;
-    const item = document.createElement('div');
-    item.className = 'signal-item signal-yellow';
-    item.innerHTML = `<span>→</span><span>${escapeHTML(s)}</span>`;
-    sigList.appendChild(item);
+// ---- MAIN COACHING RENDER ----
+function renderCoaching(da, co, thin) {
+  // Show cards at full opacity
+  ['match-card', 'you-card', 'heading-card'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.opacity = '1';
   });
+  // Hide insufficient notice
+  const insufficientEl = document.getElementById('insufficient-notice');
+  if (insufficientEl) insufficientEl.style.display = 'none';
 
-  document.getElementById('readiness-summary').textContent = ra.summary || '';
+  // Thin data caveat
+  const thinNotice = document.getElementById('thin-data-notice');
+  if (thinNotice) thinNotice.style.display = thin ? 'block' : 'none';
+
+  // ABOUT YOUR MATCH
+  const matchText = document.getElementById('match-coaching-text');
+  if (matchText) matchText.textContent = co.about_your_match || '';
+
+  // Match signals (from dyadic)
+  const matchSigs = document.getElementById('match-signals');
+  if (matchSigs) {
+    matchSigs.innerHTML = '';
+    (da.match_consistency?.signals || []).forEach(s => {
+      const item = document.createElement('div');
+      item.className = 'signal-item signal-green';
+      item.innerHTML = `<span>✓</span><span>${escapeHTML(s)}</span>`;
+      matchSigs.appendChild(item);
+    });
+    (da.match_consistency?.flags || []).forEach(f => {
+      if (!f) return;
+      const item = document.createElement('div');
+      item.className = 'signal-item signal-red';
+      item.innerHTML = `<span>!</span><span>${escapeHTML(f)}</span>`;
+      matchSigs.appendChild(item);
+    });
+  }
+
+  // HOW YOU ARE SHOWING UP
+  const youText = document.getElementById('you-coaching-text');
+  if (youText) youText.textContent = co.about_you || '';
+
+  // Your signals (from dyadic)
+  const yourSigs = document.getElementById('your-signals');
+  if (yourSigs) {
+    yourSigs.innerHTML = '';
+    (da.your_consistency?.signals || []).forEach(s => {
+      const item = document.createElement('div');
+      item.className = 'signal-item signal-green';
+      item.innerHTML = `<span>✓</span><span>${escapeHTML(s)}</span>`;
+      yourSigs.appendChild(item);
+    });
+    (da.your_consistency?.flags || []).forEach(f => {
+      if (!f) return;
+      const item = document.createElement('div');
+      item.className = 'signal-item signal-yellow';
+      item.innerHTML = `<span>→</span><span>${escapeHTML(f)}</span>`;
+      yourSigs.appendChild(item);
+    });
+  }
+
+  // RELATIONAL PATTERN
+  const patternEl = document.getElementById('relational-pattern');
+  if (patternEl) patternEl.textContent = da.relational_pattern || '';
+
+  // WHERE THIS IS HEADING
+  const headingText = document.getElementById('heading-coaching-text');
+  if (headingText) headingText.textContent = co.where_this_is_heading || '';
 }
 
 function renderAction(aa) {
-  const badge = document.getElementById('action-type-badge');
-  const msgBox = document.getElementById('agent-message-box');
-  const msgEl = document.getElementById('agent-message');
+  const badge    = document.getElementById('action-type-badge');
+  const msgBox   = document.getElementById('agent-message-box');
+  const msgEl    = document.getElementById('agent-message');
   const meetingBox = document.getElementById('meeting-suggestion-box');
 
-  // Action type badge
   badge.textContent = aa.action_type || 'none';
   if (aa.should_act && aa.action_type !== 'none') {
     badge.className = 'action-type-badge action-active';
@@ -341,11 +371,9 @@ function renderAction(aa) {
     msgBox.className = 'agent-message-box';
   }
 
-  // Agent message
-  msgEl.textContent = aa.message_to_user || 'No action at this time.';
+  msgEl.textContent = aa.message_to_user || '';
   msgEl.style.fontStyle = aa.should_act ? 'normal' : 'italic';
 
-  // Meeting suggestion
   if (aa.meeting_suggestion && aa.meeting_suggestion.active) {
     meetingBox.style.display = 'block';
     document.getElementById('meeting-format').textContent = aa.meeting_suggestion.suggested_format || '';
@@ -357,21 +385,31 @@ function renderAction(aa) {
 
 // ---- RESET ----
 function resetAnalysisPanel() {
-  document.getElementById('consistency-score').textContent = '—';
-  document.getElementById('consistency-score').className = 'score-badge score-default';
-  document.getElementById('consistency-signals').innerHTML = '';
-  document.getElementById('consistency-flags').innerHTML = '';
-  document.getElementById('consistency-summary').textContent = 'Run the agent to see analysis';
-  document.getElementById('ready-a-icon').textContent = '⬜';
-  document.getElementById('ready-b-icon').textContent = '⬜';
-  document.getElementById('ready-a-label').textContent = 'User A — not yet assessed';
-  document.getElementById('ready-b-label').textContent = 'User B — not yet assessed';
-  document.getElementById('readiness-signals').innerHTML = '';
-  document.getElementById('readiness-summary').textContent = 'Run the agent to see analysis';
+  // Coaching cards
+  ['match-card', 'you-card', 'heading-card'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.opacity = '1';
+  });
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  const setHTML = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val; };
+
+  setText('match-coaching-text', 'Run the agent to see analysis');
+  setHTML('match-signals', '');
+  setText('you-coaching-text', 'Run the agent to see analysis');
+  setHTML('your-signals', '');
+  setText('relational-pattern', '');
+  setText('heading-coaching-text', 'Run the agent to see analysis');
+
+  const insuf = document.getElementById('insufficient-notice');
+  if (insuf) insuf.style.display = 'none';
+  const thin = document.getElementById('thin-data-notice');
+  if (thin) thin.style.display = 'none';
+
   document.getElementById('action-type-badge').textContent = 'waiting';
   document.getElementById('action-type-badge').className = 'action-type-badge';
   document.getElementById('agent-message-box').className = 'agent-message-box';
   document.getElementById('agent-message').textContent = 'The agent will surface a message here when it detects the right moment.';
+  document.getElementById('agent-message').style.fontStyle = 'italic';
   document.getElementById('meeting-suggestion-box').style.display = 'none';
   const warning = document.querySelector('.mock-warning');
   if (warning) warning.remove();

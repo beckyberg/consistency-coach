@@ -815,3 +815,64 @@ footer a:hover { text-decoration: underline; }
 .import-status.status-success { color: var(--green); }
 .import-status.status-error   { color: var(--red); }
 .import-status.status-loading { color: var(--yellow); }
+
+/* ============================================================
+   COACHING CARDS — v2.0 prompt architecture
+   ============================================================ */
+
+.coaching-card { transition: opacity 0.3s; }
+
+.coaching-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.coaching-card-header h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-light);
+  margin-bottom: 0;
+}
+
+.coaching-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.7;
+  margin-bottom: 10px;
+}
+
+.relational-pattern-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  font-style: italic;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  margin-top: 6px;
+}
+.relational-pattern-text:empty { display: none; }
+
+/* ---- INSUFFICIENT / THIN DATA NOTICES ---- */
+.insufficient-notice {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  font-style: italic;
+  text-align: center;
+}
+
+.thin-notice {
+  background: var(--yellow-bg);
+  border: 1px solid #5e3d00;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--yellow);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
