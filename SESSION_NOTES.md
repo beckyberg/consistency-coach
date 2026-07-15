@@ -106,7 +106,7 @@ git checkout v1.0
 ---
 
 ### v1.1 — Conversation Import
-**Branch:** `feature/conversation-import`  
+**Branch:** `feature/v1.1-v2.0`  
 **Latest commit:** `e48a82d`  
 **Features:**
 - Import tab alongside Demo Scenarios tab
@@ -164,7 +164,7 @@ All 6 tested and confirmed working correctly as of July 15, 2026.
 ## 🗺️ Feature Roadmap
 
 ### v1.1 — Conversation Import (NEXT — ready to build)
-**Branch to create:** `feature/conversation-import`  
+**Branch to create:** `feature/v1.1-v2.0`  
 **Design:** Combined Option B + C:
 - User pastes real dating app conversation
 - User provides their name and match's name
@@ -252,7 +252,7 @@ node server.js
 ### Current Branch
 ```bash
 cd /workspace/consistency-coach
-git checkout feature/conversation-import
+git checkout feature/v1.1-v2.0
 git log --oneline -5  # see recent commits
 ```
 
@@ -261,14 +261,14 @@ git log --oneline -5  # see recent commits
 # Get a fresh GitHub token from github.com/settings/tokens first
 cd /workspace/consistency-coach
 git remote set-url origin https://YOUR_NEW_TOKEN@github.com/beckyberg/consistency-coach.git
-git push origin feature/conversation-import
+git push origin feature/v1.1-v2.0
 git remote set-url origin https://github.com/beckyberg/consistency-coach.git  # remove token immediately
 ```
 
 ### Merging to Master + Tagging v1.1
 ```bash
 git checkout master
-git merge feature/conversation-import
+git merge feature/v1.1-v2.0
 git tag v1.1 && git push origin master && git push origin v1.1
 ```
 
