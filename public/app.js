@@ -611,10 +611,6 @@ async function runImportAnalysis() {
   nameB = 'Your Match';
   currentConversation = importedConversation;
 
-  // Update readiness labels
-  document.getElementById('ready-a-label').textContent = `${importYourName} — not yet assessed`;
-  document.getElementById('ready-b-label').textContent = `Your Match — not yet assessed`;
-
   document.getElementById('import-analyze-btn').disabled = true;
   showImportStatus('Analyzing…', 'loading');
 
