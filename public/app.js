@@ -260,7 +260,11 @@ function renderAnalysis(result) {
   const da  = result.dyadic_assessment;
   const co  = result.coaching_output;
   const aa  = result.agent_action;
-  const thin = result.data_sufficient === false;
+  // Client-side thin-data override — if the conversation is short,
+  // force the caveat regardless of what the agent returned.
+  // Threshold: fewer than 10 total messages = thin data.
+  const msgCount = currentConversation ? currentConversation.length : 0;
+  const thin = result.data_sufficient === false || msgCount < 10;
 
   if (da && co) renderCoaching(da, co, thin);
   if (aa) renderAction(aa);
