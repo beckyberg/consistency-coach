@@ -267,7 +267,7 @@ function renderAnalysis(result) {
   const thin = result.data_sufficient === false || msgCount < 10;
 
   if (da && co) renderCoaching(da, co, thin);
-  if (aa) renderAction(aa);
+  if (aa) renderAction(aa, thin);
 }
 
 // ---- INSUFFICIENT DATA STATE ----
@@ -360,7 +360,7 @@ function renderCoaching(da, co, thin) {
   if (headingText) headingText.textContent = co.where_this_is_heading || '';
 }
 
-function renderAction(aa) {
+function renderAction(aa, thin = false) {
   const badge    = document.getElementById('action-type-badge');
   const msgBox   = document.getElementById('agent-message-box');
   const msgEl    = document.getElementById('agent-message');
@@ -378,7 +378,8 @@ function renderAction(aa) {
   msgEl.textContent = aa.message_to_user || '';
   msgEl.style.fontStyle = aa.should_act ? 'normal' : 'italic';
 
-  if (aa.meeting_suggestion && aa.meeting_suggestion.active) {
+  // Never show meeting suggestion during thin-data state
+  if (!thin && aa.meeting_suggestion && aa.meeting_suggestion.active) {
     meetingBox.style.display = 'block';
     document.getElementById('meeting-format').textContent = aa.meeting_suggestion.suggested_format || '';
     document.getElementById('safety-reminder').textContent = aa.meeting_suggestion.safety_reminder || '';

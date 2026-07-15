@@ -47,6 +47,8 @@ INSUFFICIENT — threshold not met
 
 THIN — threshold met but signal is limited (short conversation, mostly surface exchanges)
   → Proceed with full output but set data_sufficient to false and include an opening caveat in each coaching field: treat this as a first impression, not a conclusion.
+  → agent_action must be "none" or "reflection_prompt" only — never "readiness_nudge" or "meeting_suggestion"
+  → meeting_suggestion.active must be false
 
 SUFFICIENT — threshold met with clear signal
   → Proceed with full output normally.
