@@ -876,3 +876,47 @@ footer a:hover { text-decoration: underline; }
   line-height: 1.5;
   margin-bottom: 4px;
 }
+
+/* ============================================================
+   TIMESTAMP — bubble-level time label
+   ============================================================ */
+.bubble-time {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-dim);
+  margin-left: 6px;
+  letter-spacing: 0.2px;
+}
+
+/* ============================================================
+   DAY DIVIDERS — separator between conversation days
+   ============================================================ */
+.day-divider {
+  margin: 10px 0 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.day-divider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.day-divider-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.day-divider-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+
