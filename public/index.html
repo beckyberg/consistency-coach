@@ -163,11 +163,6 @@
       <!-- INSUFFICIENT DATA NOTICE -->
       <div class="insufficient-notice" id="insufficient-notice" style="display:none"></div>
 
-      <!-- THIN DATA NOTICE -->
-      <div class="thin-notice" id="thin-data-notice" style="display:none">
-        Early read — based on limited exchanges. Treat this as a first impression, not a conclusion.
-      </div>
-
       <!-- CARD 1 — ABOUT YOUR MATCH -->
       <section class="card coaching-card" id="match-card">
         <div class="coaching-card-header">
@@ -184,19 +179,22 @@
         </div>
         <p id="you-coaching-text" class="coaching-text">Run the agent to see analysis</p>
         <div id="your-signals" class="signal-list"></div>
-        <p id="relational-pattern" class="relational-pattern-text"></p>
       </section>
 
       <!-- CARD 3 — WHERE THIS IS HEADING -->
       <section class="card coaching-card" id="heading-card">
         <div class="coaching-card-header">
           <h3>Where This Is Heading</h3>
-          <span class="action-type-badge" id="action-type-badge">waiting</span>
         </div>
         <p id="heading-coaching-text" class="coaching-text">Run the agent to see analysis</p>
         <div id="agent-message-box" class="agent-message-box">
           <p id="agent-message" style="font-style:italic">The agent will surface a message here when it detects the right moment.</p>
         </div>
+        <!-- THIN DATA NOTICE — shown here when meeting suggestion is suppressed due to limited data -->
+        <div class="thin-notice" id="thin-data-notice" style="display:none">
+          Early read — based on limited exchanges. Treat this as a first impression, not a conclusion.
+        </div>
+
         <div id="meeting-suggestion-box" class="meeting-box" style="display:none">
           <div class="meeting-header">📅 Suggested Next Step</div>
           <p id="meeting-format">—</p>

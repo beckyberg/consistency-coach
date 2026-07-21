@@ -325,10 +325,7 @@ function renderInsufficientData(msg) {
     insufficientEl.textContent = msg || "There isn't enough conversation here yet for a meaningful read. Keep going — I'll have more to say once the conversation develops.";
   }
   // Reset action card
-  document.getElementById('action-type-badge').textContent = 'waiting';
-  document.getElementById('action-type-badge').className = 'action-type-badge';
-  document.getElementById('agent-message').textContent = 'Keep the conversation going.';
-  document.getElementById('agent-message').style.fontStyle = 'italic';
+  document.getElementById('agent-message-box').style.display = 'none';
   document.getElementById('meeting-suggestion-box').style.display = 'none';
 }
 
@@ -342,10 +339,6 @@ function renderCoaching(da, co, thin, suppressMeeting = false) {
   // Hide insufficient notice
   const insufficientEl = document.getElementById('insufficient-notice');
   if (insufficientEl) insufficientEl.style.display = 'none';
-
-  // Thin data caveat
-  const thinNotice = document.getElementById('thin-data-notice');
-  if (thinNotice) thinNotice.style.display = thin ? 'block' : 'none';
 
   // ABOUT YOUR MATCH
   const matchText = document.getElementById('match-coaching-text');
@@ -427,47 +420,44 @@ function renderCoaching(da, co, thin, suppressMeeting = false) {
     }
   }
 
-  // RELATIONAL PATTERN
-  const patternEl = document.getElementById('relational-pattern');
-  if (patternEl) patternEl.textContent = da.relational_pattern || '';
 
   // WHERE THIS IS HEADING
   const headingText = document.getElementById('heading-coaching-text');
   if (suppressMeeting) {
     // Silence gap detected from match — override AI's meeting-oriented text
-    const badge = document.getElementById('action-type-badge');
-    if (badge) { badge.textContent = 'on hold'; badge.className = 'action-type-badge'; }
-    if (headingText) headingText.textContent = 'There are gaps in response patterns that are worth paying attention to before moving toward a meeting. The conversation has positive signals, but unsolicited multi-day silences can affect the trust needed to take things offline comfortably. See the timing notes in the signals above.';
+      if (headingText) headingText.textContent = 'There are gaps in response patterns that are worth paying attention to before moving toward a meeting. The conversation has positive signals, but unsolicited multi-day silences can affect the trust needed to take things offline comfortably. See the timing notes in the signals above.';
   } else {
     if (headingText) headingText.textContent = co.where_this_is_heading || '';
   }
 }
 
 function renderAction(aa, thin = false, suppressMeeting = false) {
-  const badge    = document.getElementById('action-type-badge');
   const msgBox   = document.getElementById('agent-message-box');
   const msgEl    = document.getElementById('agent-message');
   const meetingBox = document.getElementById('meeting-suggestion-box');
 
-  badge.textContent = aa.action_type || 'none';
-  if (aa.should_act && aa.action_type !== 'none') {
-    badge.className = 'action-type-badge action-active';
+  // Show agent message box only when the agent has something meaningful to say
+  const hasMessage = aa.should_act && aa.message_to_user && aa.message_to_user.trim();
+  if (hasMessage) {
+    msgBox.style.display = 'block';
     msgBox.className = 'agent-message-box agent-message-active';
+    msgEl.textContent = aa.message_to_user;
+    msgEl.style.fontStyle = 'normal';
   } else {
-    badge.className = 'action-type-badge';
-    msgBox.className = 'agent-message-box';
+    msgBox.style.display = 'none';
   }
 
-  msgEl.textContent = aa.message_to_user || '';
-  msgEl.style.fontStyle = aa.should_act ? 'normal' : 'italic';
-
-  // Never show meeting suggestion during thin-data state or when silence gap detected from match
+  // Show meeting suggestion only when data is sufficient and no silence suppression
+  const thinNotice = document.getElementById('thin-data-notice');
   if (!thin && !suppressMeeting && aa.meeting_suggestion && aa.meeting_suggestion.active) {
     meetingBox.style.display = 'block';
     document.getElementById('meeting-format').textContent = aa.meeting_suggestion.suggested_format || '';
     document.getElementById('safety-reminder').textContent = aa.meeting_suggestion.safety_reminder || '';
+    if (thinNotice) thinNotice.style.display = 'none';
   } else {
     meetingBox.style.display = 'none';
+    // Show thin notice in this space when data is thin and no meeting suggestion
+    if (thinNotice) thinNotice.style.display = thin ? 'block' : 'none';
   }
 }
 
@@ -485,17 +475,14 @@ function resetAnalysisPanel() {
   setHTML('match-signals', '');
   setText('you-coaching-text', 'Run the agent to see analysis');
   setHTML('your-signals', '');
-  setText('relational-pattern', '');
   setText('heading-coaching-text', 'Run the agent to see analysis');
 
   const insuf = document.getElementById('insufficient-notice');
   if (insuf) insuf.style.display = 'none';
-  const thin = document.getElementById('thin-data-notice');
-  if (thin) thin.style.display = 'none';
+  const thinEl = document.getElementById('thin-data-notice');
+  if (thinEl) thinEl.style.display = 'none';
 
-  document.getElementById('action-type-badge').textContent = 'waiting';
-  document.getElementById('action-type-badge').className = 'action-type-badge';
-  document.getElementById('agent-message-box').className = 'agent-message-box';
+  document.getElementById('agent-message-box').style.display = 'none';
   document.getElementById('agent-message').textContent = 'The agent will surface a message here when it detects the right moment.';
   document.getElementById('agent-message').style.fontStyle = 'italic';
   document.getElementById('meeting-suggestion-box').style.display = 'none';
