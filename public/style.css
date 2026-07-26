@@ -793,6 +793,22 @@ footer a:hover { text-decoration: underline; }
   flex-shrink: 0;
 }
 
+/* ---- PASTE DUMP FIELDS ---- */
+.optional-hint {
+  font-weight: 400;
+  font-style: italic;
+}
+.dump-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+.paste-dump {
+  min-height: 90px;
+  resize: vertical;
+}
+
 /* ---- IMPORT ACTIONS ---- */
 .import-actions {
   display: flex;
@@ -908,6 +924,233 @@ footer a:hover { text-decoration: underline; }
   flex: 1;
   height: 1px;
   background: var(--border);
+}
+
+/* ============================================================
+   SCREENSHOT UPLOAD — input method v2
+   ============================================================ */
+
+/* Sub-toggle inside import panel */
+.input-method-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.input-method-tab {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.input-method-tab:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.input-method-tab.active {
+  background: #1a1830;
+  border-color: var(--accent);
+  color: var(--accent-light);
+}
+
+/* Screenshot intro copy */
+.screenshot-intro {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+/* Upload zones container */
+.screenshot-zones {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* Individual zone block */
+.screenshot-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.screenshot-zone-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.screenshot-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.screenshot-badge.required {
+  background: #2d1f00;
+  color: var(--yellow);
+  border: 1px solid #5e3d00;
+}
+.screenshot-badge.optional {
+  background: var(--surface2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.screenshot-hint {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-dim);
+  width: 100%;
+  margin-top: -2px;
+}
+
+/* Clickable drop zone */
+.upload-zone {
+  background: var(--surface2);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.upload-zone:hover,
+.upload-zone.drag-over {
+  border-color: var(--accent);
+  background: #16152a;
+}
+.upload-zone.has-files {
+  border-color: var(--green);
+  border-style: solid;
+  background: var(--green-bg);
+}
+.upload-icon {
+  font-size: 22px;
+}
+.upload-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.upload-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Thumbnail row */
+.thumb-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.thumb-item {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.thumb-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.thumb-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  background: rgba(0,0,0,0.75);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  cursor: pointer;
+  color: #fff;
+  border: none;
+  line-height: 1;
+  padding: 0;
+}
+.thumb-remove:hover { background: var(--red); }
+
+/* Screenshot extract button area */
+.screenshot-actions {
+  margin-bottom: 8px;
+}
+.screenshot-actions .btn {
+  width: 100%;
+}
+
+/* Extracted data review section */
+.extracted-review {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.extracted-review-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-light);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.extracted-field {
+  margin-bottom: 10px;
+}
+.extracted-field label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+.extracted-field textarea {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 60px;
+  transition: border-color 0.15s;
+}
+.extracted-field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .day-divider-label {

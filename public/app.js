@@ -20,6 +20,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.key === 'Enter') sendMessage();
   });
 
+  // Drag-and-drop for screenshot upload zones
+  ['profile-a', 'profile-b', 'convo'].forEach(slot => {
+    const zone = document.getElementById('uz-' + slot);
+    if (!zone) return;
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      files.forEach(f => screenshotFiles[slot].push(f));
+      renderThumbs(slot);
+      updateExtractBtn();
+    });
+  });
+
   // API key bar
   const keyInput = document.getElementById('api-key-input');
   const saveBtn  = document.getElementById('save-key-btn');
@@ -690,6 +706,74 @@ function escapeHTML(str) {
 }
 
 
+// ---- PARSE RAW PROFILE DUMP VIA GPT ----
+async function parseProfileDump(apiKey, rawA, rawB) {
+  const prompt = `You are a data extraction assistant. Extract structured profile information from raw dating app profile text.
+
+Return ONLY valid JSON with this structure:
+{
+  "profile_a": {
+    "name": "string or null",
+    "bio": "string or null",
+    "prompts": [{"question": "string", "answer": "string"}],
+    "goal": "string or null",
+    "interests": "string or null"
+  },
+  "profile_b": {
+    "name": "string or null",
+    "bio": "string or null",
+    "prompts": [{"question": "string", "answer": "string"}],
+    "goal": "string or null",
+    "interests": "string or null"
+  }
+}
+
+If a profile section is empty or not provided, return nulls for all its fields.
+Extract the name from whatever is at the top of the profile text (usually the first line or heading).
+For prompts, identify question/answer pairs — they may be formatted as "Question\nAnswer", "Q: A", or just sequential lines.
+Do not invent data. Only extract what is present.`;
+
+  const userMsg = [
+    rawA ? `=== YOUR PROFILE (User A) ===\n${rawA}` : '=== YOUR PROFILE (User A) ===\n(not provided)',
+    rawB ? `=== MATCH\'S PROFILE (User B) ===\n${rawB}` : `=== MATCH\'S PROFILE (User B) ===\n(not provided)`
+  ].join('\n\n');
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [{ role: 'system', content: prompt }, { role: 'user', content: userMsg }],
+      response_format: { type: 'json_object' },
+      temperature: 0
+    })
+  });
+  if (!response.ok) { const e = await response.json(); throw new Error(e.error?.message || 'OpenAI error'); }
+  const data = await response.json();
+  return JSON.parse(data.choices[0].message.content);
+}
+
+// ---- BUILD PROFILE OBJECT FROM PARSED DATA ----
+function buildProfileObj(parsed, fallbackName, isMatch) {
+  const hasData = parsed && (parsed.name || parsed.bio || (parsed.prompts || []).length > 0);
+  if (!hasData) return {
+    name: fallbackName,
+    bio: '(Profile not provided — conversation-only analysis)',
+    prompt1: { question: 'Note', answer: 'No profile data submitted. Assess conversation authenticity and readiness signals only.' },
+    prompt2: { question: 'Note', answer: 'Infer personality and communication style from conversation patterns.' },
+    goal: 'Not specified', interests: 'Not specified'
+  };
+  const prompts = parsed.prompts || [];
+  return {
+    name: isMatch ? 'Your Match' : (parsed.name || fallbackName),
+    bio: parsed.bio || '(Bio not captured)',
+    prompt1: prompts[0] || { question: 'Prompt', answer: '(not captured)' },
+    prompt2: prompts[1] || { question: '', answer: '' },
+    goal: parsed.goal || 'Not specified',
+    interests: parsed.interests || 'Not specified'
+  };
+}
+
 /* ============================================================
    IMPORT MODE — v1.1
    Combined Option B + C: anonymize match name + disclosure
@@ -708,6 +792,28 @@ function switchMode(mode) {
   document.getElementById('import-panel').style.display = mode === 'import' ? '' : 'none';
 
   if (mode === 'import') {
+    // Reset screenshot state when switching to import
+    screenshotFiles['profile-a'] = [];
+    screenshotFiles['profile-b'] = [];
+    screenshotFiles['convo'] = [];
+    ['profile-a','profile-b','convo'].forEach(s => renderThumbs(s));
+    updateExtractBtn();
+    extractedData = null;
+    const existingReview = document.getElementById('extracted-review-block');
+    if (existingReview) existingReview.remove();
+    document.getElementById('screenshot-disclosure-box').style.display = 'none';
+    document.getElementById('screenshot-analyze-actions').style.display = 'none';
+    showExtractStatus('', '');
+    // Switch to paste sub-tab by default
+    switchInputMethod('paste');
+
+    // Reset profile fields
+    window._parsedProfiles = null;
+    ['paste-a-raw','paste-b-raw'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+
     // Reset import UI state
     document.getElementById('disclosure-box').style.display = 'none';
     document.getElementById('import-analyze-btn').style.display = 'none';
@@ -728,113 +834,137 @@ function switchMode(mode) {
 }
 
 // ---- PREVIEW & ANONYMIZE ----
-function previewImport() {
-  const yourName   = document.getElementById('import-your-name').value.trim();
-  const matchName  = document.getElementById('import-match-name').value.trim();
-  const rawText    = document.getElementById('import-textarea').value.trim();
+async function previewImport() {
+  const rawConvo   = document.getElementById('import-textarea').value.trim();
+  const rawA       = document.getElementById('paste-a-raw').value.trim();
+  const rawB       = document.getElementById('paste-b-raw').value.trim();
 
-  // Validation
-  if (!yourName) {
-    showImportStatus('Please enter your name (Step 1)', 'error');
-    document.getElementById('import-your-name').focus();
-    return;
-  }
-  if (!matchName) {
-    showImportStatus("Please enter your match's name (Step 2)", 'error');
-    document.getElementById('import-match-name').focus();
-    return;
-  }
-  if (!rawText) {
-    showImportStatus('Please paste a conversation (Step 3)', 'error');
+  if (!rawConvo) {
+    showImportStatus('Please paste your conversation in Step 3.', 'error');
     document.getElementById('import-textarea').focus();
     return;
   }
 
-  // Parse lines
-  const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  const parsed = [];
-  const unrecognized = [];
+  const apiKey = savedApiKey || localStorage.getItem('cc_openai_key') || '';
 
+  // ---- STEP 1: Parse profiles (if provided) ----
+  let parsedProfiles = null;
+  if ((rawA || rawB) && apiKey) {
+    showImportStatus('Reading profile content…', 'loading');
+    document.getElementById('import-preview-btn').disabled = true;
+    try {
+      parsedProfiles = await parseProfileDump(apiKey, rawA, rawB);
+    } catch(e) {
+      showImportStatus('Profile parsing failed: ' + e.message + ' — continuing with conversation only.', 'error');
+    }
+    document.getElementById('import-preview-btn').disabled = false;
+  } else if ((rawA || rawB) && !apiKey) {
+    showImportStatus('Enter your OpenAI API key above to enable profile parsing. Continuing with conversation only.', 'error');
+  }
+
+  // ---- STEP 2: Parse conversation ----
+  // Detect sender names from conversation lines (e.g. "Becky: ..." / "Jordan: ...")
   const escRegex = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const tsBracketRe = /^\[([^\]]+)\]\s*/;
+  const senderPattern = /^([^:]{1,40}):\s+/;
+
+  const lines = rawConvo.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const senderCounts = {};
+
+  lines.forEach(line => {
+    let cleanLine = line;
+    const tsMatch = line.match(tsBracketRe);
+    if (tsMatch) cleanLine = line.slice(tsMatch[0].length);
+    const m = cleanLine.match(senderPattern);
+    if (m) senderCounts[m[1].trim()] = (senderCounts[m[1].trim()] || 0) + 1;
+  });
+
+  // Top two senders by frequency
+  const senders = Object.entries(senderCounts).sort((a,b) => b[1]-a[1]).map(e => e[0]);
+
+  // If profile names detected, prefer them; else use top senders
+  const detectedA = parsedProfiles?.profile_a?.name;
+  const detectedB = parsedProfiles?.profile_b?.name;
+
+  // yourName = profile A name if available, else top sender
+  let yourName  = detectedA || senders[0] || 'You';
+  let matchName = detectedB || senders[1] || 'Your Match';
+
   const yourRe  = new RegExp('^' + escRegex(yourName)  + '\\s*:', 'i');
   const matchRe = new RegExp('^' + escRegex(matchName) + '\\s*:', 'i');
 
-  // Optional timestamp prefix: [Jun 2, 9:45 AM] or [2025-06-02 09:45] etc.
-  const tsBracketRe = /^\[([^\]]+)\]\s*/;
+  const parsed = [];
+  const unrecognized = [];
 
   lines.forEach((line, i) => {
     let timestamp = null;
     let cleanLine = line;
-
-    // Try extracting a leading [timestamp] bracket
     const tsMatch = line.match(tsBracketRe);
     if (tsMatch) {
       const tsRaw = tsMatch[1].trim();
       let d = new Date(tsRaw);
-      // Try "Jun 2 9:45 AM" → add year
       if (isNaN(d)) d = new Date(tsRaw.replace(/^(\w{3}\s+\d{1,2}),?\s+(\d+:\d+)/i, '$1 2025 $2'));
-      // Try "6/2 9:45 AM" → coerce
       if (isNaN(d)) d = new Date('2025/' + tsRaw.replace(/^(\d{1,2}\/\d{1,2})\s+/, '$1/2025 '));
-      if (!isNaN(d)) {
-        timestamp = d.toISOString();
-        cleanLine  = line.slice(tsMatch[0].length);
-      }
+      if (!isNaN(d)) { timestamp = d.toISOString(); cleanLine = line.slice(tsMatch[0].length); }
     }
-
     if (yourRe.test(cleanLine)) {
-      const text = cleanLine.replace(new RegExp('^' + escRegex(yourName) + '\\s*:\\s*', 'i'), '').trim();
-      parsed.push({ sender: yourName, text, timestamp });
+      parsed.push({ sender: yourName, text: cleanLine.replace(new RegExp('^' + escRegex(yourName) + '\\s*:\\s*', 'i'), '').trim(), timestamp });
     } else if (matchRe.test(cleanLine)) {
-      // Anonymize the match's name right here
-      const text = cleanLine.replace(new RegExp('^' + escRegex(matchName) + '\\s*:\\s*', 'i'), '').trim();
-      parsed.push({ sender: 'Your Match', text, timestamp });
+      parsed.push({ sender: 'Your Match', text: cleanLine.replace(new RegExp('^' + escRegex(matchName) + '\\s*:\\s*', 'i'), '').trim(), timestamp });
     } else {
-      unrecognized.push(i + 1);
+      // Try any sender pattern if neither known name matches
+      const anyM = cleanLine.match(senderPattern);
+      if (anyM) {
+        const s = anyM[1].trim();
+        const text = cleanLine.slice(anyM[0].length).trim();
+        const isA = s.toLowerCase() === yourName.toLowerCase();
+        parsed.push({ sender: isA ? yourName : 'Your Match', text, timestamp });
+      } else {
+        unrecognized.push(i + 1);
+      }
     }
   });
 
+  // Anonymize inline match name mentions
+  const matchNameRe = new RegExp(escRegex(matchName), 'gi');
+  parsed.forEach(m => { m.text = m.text.replace(matchNameRe, 'Your Match'); });
+
   if (parsed.length === 0) {
-    showImportStatus(
-      `No messages recognized. Make sure lines start with "${yourName}:" or "${matchName}:" (case-insensitive).`,
-      'error'
-    );
+    showImportStatus('No messages recognized. Make sure your conversation uses "Name: message" format.', 'error');
     return;
   }
 
-  // Also anonymize any inline mentions of match name within message text
-  const matchNameRe = new RegExp(escRegex(matchName), 'gi');
-  parsed.forEach(m => {
-    m.text = m.text.replace(matchNameRe, 'Your Match');
-  });
-
   importedConversation = parsed;
   importYourName = yourName;
+  window._parsedProfiles = parsedProfiles;
 
-  // Update profile cards with real names now that we have them
-  renderImportProfileCards(yourName, matchName);
-
-  // Render anonymized preview in chat window using the full renderConversation
-  // so day dividers + timestamps appear if present
+  // Render conversation preview
   nameA = yourName;
   nameB = 'Your Match';
   renderConversation(parsed, yourName, 'Your Match');
 
-  // Show summary
-  const hasTimestamps = parsed.some(m => m.timestamp);
-  let statusMsg = `✓ ${parsed.length} messages parsed and anonymized.`;
-  if (hasTimestamps) statusMsg += ' Timestamps detected — day dividers and response time will be shown.';
-  if (unrecognized.length > 0) {
-    statusMsg += ` (${unrecognized.length} line${unrecognized.length > 1 ? 's' : ''} skipped — line${unrecognized.length > 1 ? 's' : ''} ${unrecognized.join(', ')})`;
+  // Populate profile cards
+  if (parsedProfiles) {
+    const pA = buildProfileObj(parsedProfiles.profile_a, yourName, false);
+    const pB = buildProfileObj(parsedProfiles.profile_b, matchName, true);
+    renderProfile('A', pA);
+    renderProfile('B', pB);
+  } else {
+    renderImportProfileCards(yourName, 'Your Match');
   }
+
+  const hasTimestamps = parsed.some(m => m.timestamp);
+  const hasProfiles   = !!(parsedProfiles?.profile_a?.bio || parsedProfiles?.profile_b?.bio);
+  let statusMsg = `✓ ${parsed.length} messages parsed.`;
+  if (hasTimestamps) statusMsg += ' Timestamps detected.';
+  if (hasProfiles)   statusMsg += ' Profile content extracted.';
+  if (unrecognized.length > 0) statusMsg += ` (${unrecognized.length} line${unrecognized.length > 1 ? 's' : ''} skipped)`;
   showImportStatus(statusMsg, 'success');
 
-  // Show disclosure + analyze button
   document.getElementById('disclosure-box').style.display = 'flex';
   document.getElementById('disclosure-consent').checked = false;
   document.getElementById('import-analyze-btn').style.display = '';
   document.getElementById('import-analyze-btn').disabled = true;
-
-  // Keep the main analyze button hidden (import uses its own button)
   document.getElementById('analyze-btn').disabled = true;
 }
 
@@ -857,29 +987,25 @@ async function runImportAnalysis() {
     return;
   }
 
-  // Build lightweight profile stubs for import mode
-  const profileA = {
-    name: importYourName,
-    bio: '(Profile not provided — conversation-only analysis)',
-    prompt1: { question: 'Note', answer: 'No profile data submitted. Assess conversation authenticity and readiness signals only.' },
-    prompt2: { question: 'Note', answer: 'Infer personality and communication style from conversation patterns.' },
-    goal: 'Not specified',
-    interests: 'Not specified'
-  };
-  const profileB = {
-    name: 'Your Match',
-    bio: '(Profile not provided — conversation-only analysis)',
-    prompt1: { question: 'Note', answer: 'No profile data submitted. Assess conversation authenticity and readiness signals only.' },
-    prompt2: { question: 'Note', answer: 'Infer authenticity from message specificity, reciprocity, and engagement depth.' },
-    goal: 'Not specified',
-    interests: 'Not specified'
-  };
+  // Build profiles from parsed data (if available) or stubs
+  const pp = window._parsedProfiles;
+  const profileA = buildProfileObj(pp?.profile_a || null, importYourName, false);
+  const profileB = buildProfileObj(pp?.profile_b || null, 'Your Match', true);
+  const hasProfileData = !!(pp?.profile_a?.bio || pp?.profile_b?.bio);
 
   // Set global state so renderAnalysis works
   currentProfiles = { a: profileA, b: profileB };
   nameA = importYourName;
   nameB = 'Your Match';
   currentConversation = importedConversation;
+
+  // Populate profile cards with real data if available, else stubs
+  if (hasProfileData) {
+    renderProfile('A', profileA);
+    renderProfile('B', profileB);
+  } else {
+    renderImportProfileCards(importYourName, 'Your Match');
+  }
 
   document.getElementById('import-analyze-btn').disabled = true;
   showImportStatus('Analyzing…', 'loading');
@@ -896,6 +1022,366 @@ async function runImportAnalysis() {
   } finally {
     document.getElementById('import-analyze-btn').disabled = false;
   }
+}
+
+/* ============================================================
+   SCREENSHOT INPUT MODE
+   ============================================================ */
+
+let currentInputMethod = 'paste'; // 'paste' | 'screenshot'
+
+// Stores uploaded File objects per slot
+const screenshotFiles = {
+  'profile-a': [],
+  'profile-b': [],
+  'convo': []
+};
+
+// Stores extracted text objects after vision call
+let extractedData = null;
+
+// ---- SWITCH INPUT METHOD ----
+function switchInputMethod(method) {
+  currentInputMethod = method;
+  document.getElementById('tab-paste-method').classList.toggle('active', method === 'paste');
+  document.getElementById('tab-screenshot-method').classList.toggle('active', method === 'screenshot');
+  document.getElementById('paste-mode-panel').style.display = method === 'paste' ? '' : 'none';
+  document.getElementById('screenshot-mode-panel').style.display = method === 'screenshot' ? '' : 'none';
+
+  if (method === 'screenshot') {
+    // Reset chat/analysis area
+    const win = document.getElementById('chat-window');
+    if (!currentConversation.length) {
+      win.innerHTML = '<div class="chat-empty"><span>📸</span><p>Upload screenshots and click Extract to get started</p></div>';
+      document.getElementById('chat-subtitle').textContent = 'Screenshot import — extracted by AI vision';
+    }
+  }
+}
+
+// ---- FILE SELECT HANDLER ----
+function handleFileSelect(slot, files) {
+  if (!files || files.length === 0) return;
+  Array.from(files).forEach(f => screenshotFiles[slot].push(f));
+  renderThumbs(slot);
+  updateExtractBtn();
+}
+
+// ---- RENDER THUMBNAILS ----
+function renderThumbs(slot) {
+  const container = document.getElementById('thumbs-' + slot);
+  const zone = document.getElementById('uz-' + slot);
+  container.innerHTML = '';
+  screenshotFiles[slot].forEach((file, idx) => {
+    const url = URL.createObjectURL(file);
+    const wrap = document.createElement('div');
+    wrap.className = 'thumb-item';
+    wrap.innerHTML = `<img src="${url}" alt="screenshot"><button class="thumb-remove" onclick="removeThumb('${slot}', ${idx})" title="Remove">✕</button>`;
+    container.appendChild(wrap);
+  });
+  zone.classList.toggle('has-files', screenshotFiles[slot].length > 0);
+  // Update upload zone text
+  const countLabel = screenshotFiles[slot].length;
+  zone.querySelector('.upload-text').textContent = countLabel > 0 ? `${countLabel} image${countLabel > 1 ? 's' : ''} added` : 'Tap to upload';
+}
+
+// ---- REMOVE THUMBNAIL ----
+function removeThumb(slot, idx) {
+  screenshotFiles[slot].splice(idx, 1);
+  renderThumbs(slot);
+  updateExtractBtn();
+}
+
+// ---- UPDATE EXTRACT BUTTON ----
+function updateExtractBtn() {
+  const hasConvo = screenshotFiles['convo'].length > 0;
+  document.getElementById('extract-btn').disabled = !hasConvo;
+}
+
+// ---- FILE TO BASE64 ----
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ---- EXTRACT FROM SCREENSHOTS ----
+async function extractFromScreenshots() {
+  const apiKey = savedApiKey || localStorage.getItem('cc_openai_key') || '';
+  if (!apiKey) {
+    showExtractStatus('Enter your OpenAI API key at the top first.', 'error');
+    return;
+  }
+  if (screenshotFiles['convo'].length === 0) {
+    showExtractStatus('Upload at least one conversation screenshot.', 'error');
+    return;
+  }
+
+  showExtractStatus('Reading screenshots with AI vision…', 'loading');
+  document.getElementById('extract-btn').disabled = true;
+
+  try {
+    // Build image content blocks for each slot
+    const buildImageBlocks = async (files, label) => {
+      if (files.length === 0) return [];
+      const blocks = [{ type: 'text', text: `=== ${label} ===` }];
+      for (const f of files) {
+        const b64 = await fileToBase64(f);
+        const mime = f.type || 'image/jpeg';
+        blocks.push({ type: 'image_url', image_url: { url: `data:${mime};base64,${b64}`, detail: 'high' } });
+      }
+      return blocks;
+    };
+
+    const contentBlocks = [
+      { type: 'text', text: `You are a data extraction assistant for a dating app analysis tool.
+
+Extract text from these dating app screenshots. Return ONLY valid JSON with this exact structure:
+
+{
+  "profile_a": {
+    "name": "string or null",
+    "bio": "string or null",
+    "prompts": [{"question": "string", "answer": "string"}],
+    "goal": "string or null",
+    "interests": "string or null"
+  },
+  "profile_b": {
+    "name": "string or null",
+    "bio": "string or null",
+    "prompts": [{"question": "string", "answer": "string"}],
+    "goal": "string or null",
+    "interests": "string or null"
+  },
+  "conversation": [
+    {"sender": "name as shown", "text": "message text", "timestamp": "ISO string or null"}
+  ],
+  "detected_names": {"user_a": "string or null", "user_b": "string or null"}
+}
+
+For profile_a and profile_b: only populate if screenshots for that profile were provided. Return nulls for missing fields.
+For conversation: extract messages in order. Infer sender names from visual cues (left/right bubbles, color). If one side doesn't have a visible name, mark as "Other Person".
+For timestamps: extract if visible (e.g. "9:41 AM", "Yesterday"), convert to ISO format using today as reference date (${new Date().toISOString().split('T')[0]}). Set null if not visible.
+Do not invent data. Only extract what is visible.` }
+    ];
+
+    const profileABlocks = await buildImageBlocks(screenshotFiles['profile-a'], 'YOUR PROFILE (User A)');
+    const profileBBlocks = await buildImageBlocks(screenshotFiles['profile-b'], "YOUR MATCH'S PROFILE (User B)");
+    const convoBlocks    = await buildImageBlocks(screenshotFiles['convo'], 'CONVERSATION (in chronological order)');
+
+    contentBlocks.push(...profileABlocks, ...profileBBlocks, ...convoBlocks);
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: contentBlocks }],
+        response_format: { type: 'json_object' },
+        max_tokens: 4000,
+        temperature: 0
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'OpenAI API error');
+    }
+
+    const data = await response.json();
+    extractedData = JSON.parse(data.choices[0].message.content);
+
+    // Show review panel
+    renderExtractedReview(extractedData);
+
+    showExtractStatus('✓ Text extracted — review below, then run analysis.', 'success');
+
+    // Scroll to review
+    document.getElementById('screenshot-mode-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch (err) {
+    showExtractStatus('Error: ' + err.message, 'error');
+    console.error(err);
+  } finally {
+    document.getElementById('extract-btn').disabled = false;
+  }
+}
+
+// ---- RENDER EXTRACTED REVIEW ----
+function renderExtractedReview(data) {
+  // Remove any previous review
+  const existing = document.getElementById('extracted-review-block');
+  if (existing) existing.remove();
+
+  const convo = data.conversation || [];
+  const nameA = data.detected_names?.user_a || (convo.find(m => true)?.sender) || 'You';
+  const nameB = data.detected_names?.user_b || 'Your Match';
+
+  // Anonymize match name in conversation
+  const anonConvo = convo.map(m => ({
+    ...m,
+    sender: (m.sender === nameB || (m.sender !== nameA && m.sender !== 'You')) ? 'Your Match' : m.sender
+  }));
+
+  // Render conversation preview
+  window.nameA = nameA;
+  window.nameB = 'Your Match';
+  renderConversation(anonConvo, nameA, 'Your Match');
+  document.getElementById('chat-subtitle').textContent = 'Screenshot import — extracted by AI vision';
+
+  // Build review block
+  const review = document.createElement('div');
+  review.id = 'extracted-review-block';
+  review.className = 'extracted-review';
+
+  const hasProfileA = data.profile_a?.name || data.profile_a?.bio;
+  const hasProfileB = data.profile_b?.name || data.profile_b?.bio;
+
+  let html = `<div class="extracted-review-title">✍️ Review &amp; Edit Extracted Data</div>`;
+
+  if (hasProfileA) {
+    html += `<div class="extracted-field"><label>Your Name</label><textarea id="ext-a-name" rows="1">${escapeHTML(data.profile_a.name || '')}</textarea></div>`;
+    html += `<div class="extracted-field"><label>Your Bio</label><textarea id="ext-a-bio" rows="2">${escapeHTML(data.profile_a.bio || '')}</textarea></div>`;
+    if ((data.profile_a.prompts || []).length > 0) {
+      html += `<div class="extracted-field"><label>Your Prompts &amp; Answers</label><textarea id="ext-a-prompts" rows="3">${escapeHTML(data.profile_a.prompts.map(p => p.question + ': ' + p.answer).join('\n'))}</textarea></div>`;
+    }
+  } else {
+    html += `<p style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">No profile screenshots uploaded for you — conversation-only analysis.</p>`;
+  }
+
+  if (hasProfileB) {
+    html += `<div class="extracted-field"><label>Match's Name <span style="font-size:10px;color:var(--text-dim);font-weight:400">(will be anonymized)</span></label><textarea id="ext-b-name" rows="1">${escapeHTML(data.profile_b.name || '')}</textarea></div>`;
+    html += `<div class="extracted-field"><label>Match's Bio</label><textarea id="ext-b-bio" rows="2">${escapeHTML(data.profile_b.bio || '')}</textarea></div>`;
+    if ((data.profile_b.prompts || []).length > 0) {
+      html += `<div class="extracted-field"><label>Match's Prompts &amp; Answers</label><textarea id="ext-b-prompts" rows="3">${escapeHTML(data.profile_b.prompts.map(p => p.question + ': ' + p.answer).join('\n'))}</textarea></div>`;
+    }
+  } else {
+    html += `<p style="font-size:11px;color:var(--text-dim);margin-bottom:8px;">No profile screenshots uploaded for your match — conversation-only analysis.</p>`;
+  }
+
+  html += `<div class="extracted-field"><label>Conversation (${anonConvo.length} messages — auto-anonymized)</label><textarea id="ext-convo" rows="5">${escapeHTML(anonConvo.map(m => m.sender + ': ' + m.text).join('\n'))}</textarea></div>`;
+
+  review.innerHTML = html;
+
+  // Insert before disclosure box
+  const disclosureBox = document.getElementById('screenshot-disclosure-box');
+  disclosureBox.parentNode.insertBefore(review, disclosureBox);
+
+  // Show disclosure + analyze
+  disclosureBox.style.display = 'flex';
+  document.getElementById('screenshot-disclosure-consent').checked = false;
+  document.getElementById('screenshot-analyze-actions').style.display = '';
+  document.getElementById('screenshot-analyze-btn').disabled = true;
+
+  // Store anonymized convo for analysis
+  extractedData._anonConvo = anonConvo;
+  extractedData._nameA = nameA;
+}
+
+// ---- TOGGLE SCREENSHOT ANALYZE BTN ----
+function toggleScreenshotAnalyzeBtn() {
+  const checked = document.getElementById('screenshot-disclosure-consent').checked;
+  document.getElementById('screenshot-analyze-btn').disabled = !checked;
+}
+
+// ---- RUN SCREENSHOT ANALYSIS ----
+async function runScreenshotAnalysis() {
+  if (!extractedData) return;
+  const apiKey = savedApiKey || localStorage.getItem('cc_openai_key') || '';
+  if (!apiKey) {
+    showExtractStatus('Enter your OpenAI API key at the top first.', 'error');
+    return;
+  }
+
+  // Build profiles from extracted + reviewed data
+  const pa = extractedData.profile_a || {};
+  const pb = extractedData.profile_b || {};
+
+  // Read back any edits the user made
+  const aName  = document.getElementById('ext-a-name')?.value.trim() || extractedData._nameA || 'You';
+  const aBio   = document.getElementById('ext-a-bio')?.value.trim()  || pa.bio || '';
+  const bName  = document.getElementById('ext-b-name')?.value.trim() || 'Your Match';
+  const bBio   = document.getElementById('ext-b-bio')?.value.trim()  || pb.bio || '';
+
+  const parsePrompts = id => {
+    const raw = document.getElementById(id)?.value || '';
+    const lines = raw.split('\n').filter(l => l.includes(':'));
+    return lines.map(l => { const i = l.indexOf(':'); return { question: l.slice(0,i).trim(), answer: l.slice(i+1).trim() }; });
+  };
+
+  const aPrompts = parsePrompts('ext-a-prompts') || pa.prompts || [];
+  const bPrompts = parsePrompts('ext-b-prompts') || pb.prompts || [];
+
+  const blankProfile = name => ({
+    name, bio: '(Profile not provided — conversation-only analysis)',
+    prompt1: { question: 'Note', answer: 'No profile data. Assess conversation authenticity and readiness signals only.' },
+    prompt2: { question: 'Note', answer: 'Infer personality from conversation patterns.' },
+    goal: 'Not specified', interests: 'Not specified'
+  });
+
+  const hasProfileA = aBio.length > 0;
+  const hasProfileB = bBio.length > 0;
+
+  const profileA = hasProfileA ? {
+    name: aName, bio: aBio,
+    prompt1: aPrompts[0] || { question: 'Prompt', answer: '(not captured)' },
+    prompt2: aPrompts[1] || { question: 'Prompt', answer: '(not captured)' },
+    goal: pa.goal || 'Not specified',
+    interests: pa.interests || 'Not specified'
+  } : blankProfile(aName);
+
+  const profileB = hasProfileB ? {
+    name: 'Your Match', bio: bBio,
+    prompt1: bPrompts[0] || { question: 'Prompt', answer: '(not captured)' },
+    prompt2: bPrompts[1] || { question: 'Prompt', answer: '(not captured)' },
+    goal: pb.goal || 'Not specified',
+    interests: pb.interests || 'Not specified'
+  } : blankProfile('Your Match');
+
+  // Pull the current (possibly edited) conversation
+  const convoText = document.getElementById('ext-convo')?.value || '';
+  const anonConvo = convoText.split('\n').filter(l => l.trim()).map(l => {
+    const i = l.indexOf(':');
+    if (i < 0) return null;
+    return { sender: l.slice(0, i).trim(), text: l.slice(i + 1).trim(), timestamp: null };
+  }).filter(Boolean);
+
+  // Set global state
+  currentProfiles = { a: profileA, b: profileB };
+  nameA = aName;
+  nameB = 'Your Match';
+  currentConversation = anonConvo;
+
+  // Populate profile cards
+  renderProfile('A', profileA);
+  renderProfile('B', profileB);
+
+  document.getElementById('screenshot-analyze-btn').disabled = true;
+  showExtractStatus('Analyzing…', 'loading');
+
+  try {
+    const result = await analyzeWithOpenAI(apiKey, profileA, profileB, anonConvo);
+    renderAnalysis(result);
+    showExtractStatus('Analysis complete ✓', 'success');
+    document.querySelector('.panel-right').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    showExtractStatus('Error: ' + err.message, 'error');
+    console.error(err);
+  } finally {
+    document.getElementById('screenshot-analyze-btn').disabled = false;
+  }
+}
+
+// ---- EXTRACT STATUS HELPER ----
+function showExtractStatus(msg, type) {
+  const el = document.getElementById('extract-status');
+  el.textContent = msg;
+  el.className = 'import-status status-' + type;
 }
 
 // ---- IMPORT STATUS HELPER ----

@@ -52,24 +52,37 @@
       <!-- IMPORT MODE PANEL -->
       <section class="card" id="import-panel" style="display:none">
         <h2>📥 Import Your Conversation</h2>
-        <p class="card-desc">Paste a real conversation from any dating app. Your match's name will be anonymized automatically before anything is sent for analysis.</p>
+        <p class="card-desc">Choose how you'd like to get your data in — type it out or upload screenshots.</p>
 
+        <!-- INPUT METHOD SUB-TOGGLE -->
+        <div class="input-method-tabs">
+          <button class="input-method-tab active" id="tab-paste-method" onclick="switchInputMethod('paste')">📝 Copy/Paste Text</button>
+          <button class="input-method-tab" id="tab-screenshot-method" onclick="switchInputMethod('screenshot')">📸 Screenshots</button>
+        </div>
+
+        <!-- PASTE MODE -->
+        <div id="paste-mode-panel">
         <div class="import-steps">
 
+          <!-- STEP 1: YOUR PROFILE -->
           <div class="import-step">
-            <label class="import-label">1. Your name <span class="import-hint">(as it appears in the conversation)</span></label>
-            <input type="text" id="import-your-name" class="import-input" placeholder="e.g. Becky" autocomplete="off" />
+            <label class="import-label">1. Your profile content <span class="import-hint optional-hint">(optional — unlocks deeper analysis)</span></label>
+            <p class="dump-hint">Select all text on your profile and paste it here — name, bio, prompts, everything. AI will sort it out.</p>
+            <textarea id="paste-a-raw" class="import-textarea paste-dump" placeholder="Just paste everything from your profile here…"></textarea>
           </div>
 
+          <!-- STEP 2: MATCH'S PROFILE -->
           <div class="import-step">
-            <label class="import-label">2. Your match's name <span class="import-hint">(will be replaced with "Your Match")</span></label>
-            <input type="text" id="import-match-name" class="import-input" placeholder="e.g. Jordan" autocomplete="off" />
+            <label class="import-label">2. Your match's profile content <span class="import-hint optional-hint">(optional — unlocks deeper analysis)</span></label>
+            <p class="dump-hint">Select all text on their profile and paste it here — name, bio, prompts, everything.</p>
+            <textarea id="paste-b-raw" class="import-textarea paste-dump" placeholder="Just paste everything from their profile here…"></textarea>
           </div>
 
+          <!-- STEP 3: CONVERSATION -->
           <div class="import-step">
             <label class="import-label">3. Paste your conversation</label>
-            <p class="import-format-hint">One message per line — <code>Name: message text</code></p>
-            <textarea id="import-textarea" class="import-textarea" placeholder="Becky: Hey, loved your profile!&#10;Jordan: Thanks! I liked yours too&#10;Becky: Your coffee farm photo is amazing…"></textarea>
+            <p class="dump-hint">Select all and paste your full conversation thread.</p>
+            <textarea id="import-textarea" class="import-textarea paste-dump" placeholder="Becky: Hey, loved your profile!&#10;Jordan: Thanks! I liked yours too&#10;Becky: Your coffee farm photo is amazing…"></textarea>
           </div>
 
           <div class="disclosure-box" id="disclosure-box" style="display:none">
@@ -94,6 +107,88 @@
           <div id="import-status" class="import-status"></div>
 
         </div>
+        </div><!-- end paste-mode-panel -->
+
+        <!-- SCREENSHOT MODE -->
+        <div id="screenshot-mode-panel" style="display:none">
+          <p class="screenshot-intro">Upload screenshots from your dating app. AI vision will extract the text — no typing required. Profiles are optional but unlock deeper analysis.</p>
+
+          <div class="screenshot-zones">
+
+            <div class="screenshot-zone">
+              <div class="screenshot-zone-label">
+                👤 Your Profile
+                <span class="screenshot-badge optional">optional</span>
+                <span class="screenshot-hint">Enables profile-to-conversation consistency check</span>
+              </div>
+              <div class="upload-zone" id="uz-profile-a" onclick="document.getElementById('file-profile-a').click()">
+                <span class="upload-icon">📸</span>
+                <span class="upload-text">Tap to upload</span>
+                <span class="upload-sub">JPG or PNG · multiple OK</span>
+              </div>
+              <input type="file" id="file-profile-a" accept="image/*" multiple style="display:none" onchange="handleFileSelect('profile-a', this.files)">
+              <div class="thumb-row" id="thumbs-profile-a"></div>
+            </div>
+
+            <div class="screenshot-zone">
+              <div class="screenshot-zone-label">
+                👤 Match's Profile
+                <span class="screenshot-badge optional">optional</span>
+                <span class="screenshot-hint">Enables profile-to-conversation consistency check</span>
+              </div>
+              <div class="upload-zone" id="uz-profile-b" onclick="document.getElementById('file-profile-b').click()">
+                <span class="upload-icon">📸</span>
+                <span class="upload-text">Tap to upload</span>
+                <span class="upload-sub">JPG or PNG · multiple OK</span>
+              </div>
+              <input type="file" id="file-profile-b" accept="image/*" multiple style="display:none" onchange="handleFileSelect('profile-b', this.files)">
+              <div class="thumb-row" id="thumbs-profile-b"></div>
+            </div>
+
+            <div class="screenshot-zone">
+              <div class="screenshot-zone-label">
+                💬 Conversation
+                <span class="screenshot-badge required">required</span>
+                <span class="screenshot-hint">Upload all screenshots — in order for long conversations</span>
+              </div>
+              <div class="upload-zone" id="uz-convo" onclick="document.getElementById('file-convo').click()">
+                <span class="upload-icon">📸</span>
+                <span class="upload-text">Tap to upload</span>
+                <span class="upload-sub">JPG or PNG · upload multiple for long conversations</span>
+              </div>
+              <input type="file" id="file-convo" accept="image/*" multiple style="display:none" onchange="handleFileSelect('convo', this.files)">
+              <div class="thumb-row" id="thumbs-convo"></div>
+            </div>
+
+          </div><!-- end screenshot-zones -->
+
+          <div class="screenshot-actions">
+            <button class="btn btn-primary" id="extract-btn" onclick="extractFromScreenshots()" disabled>✨ Extract Text from Screenshots</button>
+          </div>
+
+          <div id="extract-status" class="import-status"></div>
+
+          <!-- Post-extraction disclosure -->
+          <div class="disclosure-box" id="screenshot-disclosure-box" style="display:none">
+            <div class="disclosure-icon">🔒</div>
+            <div class="disclosure-text">
+              <strong>Before we analyze</strong>
+              <p>Your screenshots and extracted text will be sent to OpenAI for analysis. They are <strong>never stored</strong> by Consistency Coach — not on our server, not in any database.</p>
+              <p>Your match's name has been replaced with "Your Match" — verify this in the conversation preview above.</p>
+              <p>Note: you are sharing a two-party conversation. The other person has not explicitly consented to this analysis. Use your judgment.</p>
+            </div>
+            <label class="disclosure-check">
+              <input type="checkbox" id="screenshot-disclosure-consent" onchange="toggleScreenshotAnalyzeBtn()" />
+              <span>I understand and want to proceed</span>
+            </label>
+          </div>
+
+          <div class="import-actions" id="screenshot-analyze-actions" style="display:none">
+            <button class="btn btn-primary" id="screenshot-analyze-btn" disabled onclick="runScreenshotAnalysis()">🔍 Run Consistency Coach</button>
+          </div>
+
+        </div><!-- end screenshot-mode-panel -->
+
       </section>
 
       <section class="card profile-card" id="profile-a-card">
