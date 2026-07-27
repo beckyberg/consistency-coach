@@ -187,7 +187,7 @@ If THIN or SUFFICIENT data:
   }
 }`;
 
-async function analyzeWithOpenAI(apiKey, profileA, profileB, conversation) {
+async function analyzeWithOpenAI(profileA, profileB, conversation) {
 
   const hasProfile = profileA.bio && !profileA.bio.includes('Profile not provided');
 
@@ -220,12 +220,9 @@ ${conversation.map(m => `${m.sender}: ${m.text}`).join('\n')}
 
 Run the data sufficiency check first. Then return your JSON assessment.`;
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch('/api/openai', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'gpt-4o',
       messages: [

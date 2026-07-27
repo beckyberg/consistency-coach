@@ -10,7 +10,8 @@ let nameA = 'User A';
 let nameB = 'User B';
 
 // ---- INIT ----
-let savedApiKey = localStorage.getItem('cc_openai_key') || '';
+// The API key remains server-side; the browser never stores or receives it.
+let savedApiKey = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadScenarios();
@@ -36,23 +37,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // API key bar
-  const keyInput = document.getElementById('api-key-input');
-  const saveBtn  = document.getElementById('save-key-btn');
-  const keyStatus = document.getElementById('key-status');
-
-  if (savedApiKey) {
-    keyInput.value = savedApiKey;
-    keyStatus.textContent = '✅ Key loaded';
-    keyStatus.className = 'key-status key-ok';
-  }
-
-  saveBtn.addEventListener('click', () => {
-    savedApiKey = keyInput.value.trim();
-    localStorage.setItem('cc_openai_key', savedApiKey);
-    keyStatus.textContent = savedApiKey ? '✅ Key saved' : '⚠️ No key entered';
-    keyStatus.className = savedApiKey ? 'key-status key-ok' : 'key-status key-warn';
-  });
 });
 
 // ---- LOAD SCENARIOS ----
@@ -277,18 +261,12 @@ function sendMessage() {
 async function runAnalysis() {
   if (!currentProfiles) return;
 
-  const apiKey = savedApiKey || localStorage.getItem('cc_openai_key') || '';
-  if (!apiKey) {
-    setStatus('Enter your OpenAI API key above first', 'error');
-    document.getElementById('api-key-input').focus();
-    return;
-  }
 
   setStatus('Analyzing...', 'loading');
   document.getElementById('analyze-btn').disabled = true;
 
   try {
-    const result = await analyzeWithOpenAI(apiKey, currentProfiles.a, currentProfiles.b, currentConversation);
+    const result = await analyzeWithOpenAI(currentProfiles.a, currentProfiles.b, currentConversation);
     renderAnalysis(result);
     setStatus('Analysis complete ✓', 'success');
   } catch (err) {
@@ -707,7 +685,7 @@ function escapeHTML(str) {
 
 
 // ---- PARSE RAW PROFILE DUMP VIA GPT ----
-async function parseProfileDump(apiKey, rawA, rawB) {
+async function parseProfileDump(rawA, rawB) {
   const prompt = `You are a data extraction assistant. Extract structured profile information from raw dating app profile text.
 
 Return ONLY valid JSON with this structure:
@@ -738,9 +716,9 @@ Do not invent data. Only extract what is present.`;
     rawB ? `=== MATCH\'S PROFILE (User B) ===\n${rawB}` : `=== MATCH\'S PROFILE (User B) ===\n(not provided)`
   ].join('\n\n');
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch('/api/openai', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'gpt-4o',
       messages: [{ role: 'system', content: prompt }, { role: 'user', content: userMsg }],
@@ -845,21 +823,17 @@ async function previewImport() {
     return;
   }
 
-  const apiKey = savedApiKey || localStorage.getItem('cc_openai_key') || '';
-
   // ---- STEP 1: Parse profiles (if provided) ----
   let parsedProfiles = null;
-  if ((rawA || rawB) && apiKey) {
+  if (rawA || rawB) {
     showImportStatus('Reading profile content…', 'loading');
     document.getElementById('import-preview-btn').disabled = true;
     try {
-      parsedProfiles = await parseProfileDump(apiKey, rawA, rawB);
+      parsedProfiles = await parseProfileDump(rawA, rawB);
     } catch(e) {
       showImportStatus('Profile parsing failed: ' + e.message + ' — continuing with conversation only.', 'error');
     }
     document.getElementById('import-preview-btn').disabled = false;
-  } else if ((rawA || rawB) && !apiKey) {
-    showImportStatus('Enter your OpenAI API key above to enable profile parsing. Continuing with conversation only.', 'error');
   }
 
   // ---- STEP 2: Parse conversation ----
@@ -976,12 +950,6 @@ function toggleAnalyzeBtn() {
 
 // ---- RUN IMPORT ANALYSIS ----
 async function runImportAnalysis() {
-  const apiKey = savedApiKey || localStorage.getItem('cc_openai_key') || '';
-  if (!apiKey) {
-    showImportStatus('Enter your OpenAI API key at the top first.', 'error');
-    document.getElementById('api-key-input').focus();
-    return;
-  }
   if (importedConversation.length === 0) {
     showImportStatus('No conversation loaded — use Preview & Anonymize first.', 'error');
     return;
@@ -1011,7 +979,7 @@ async function runImportAnalysis() {
   showImportStatus('Analyzing…', 'loading');
 
   try {
-    const result = await analyzeWithOpenAI(apiKey, profileA, profileB, importedConversation);
+    const result = await analyzeWithOpenAI(profileA, profileB, importedConversation);
     renderAnalysis(result);
     showImportStatus('Analysis complete ✓', 'success');
     // Scroll right panel into view on mobile
@@ -1109,11 +1077,6 @@ function fileToBase64(file) {
 
 // ---- EXTRACT FROM SCREENSHOTS ----
 async function extractFromScreenshots() {
-  const apiKey = savedApiKey || localStorage.getItem('cc_openai_key') || '';
-  if (!apiKey) {
-    showExtractStatus('Enter your OpenAI API key at the top first.', 'error');
-    return;
-  }
   if (screenshotFiles['convo'].length === 0) {
     showExtractStatus('Upload at least one conversation screenshot.', 'error');
     return;
@@ -1173,12 +1136,9 @@ Do not invent data. Only extract what is visible.` }
 
     contentBlocks.push(...profileABlocks, ...profileBBlocks, ...convoBlocks);
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('/api/openai', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'gpt-4o',
         messages: [{ role: 'user', content: contentBlocks }],
@@ -1292,11 +1252,6 @@ function toggleScreenshotAnalyzeBtn() {
 // ---- RUN SCREENSHOT ANALYSIS ----
 async function runScreenshotAnalysis() {
   if (!extractedData) return;
-  const apiKey = savedApiKey || localStorage.getItem('cc_openai_key') || '';
-  if (!apiKey) {
-    showExtractStatus('Enter your OpenAI API key at the top first.', 'error');
-    return;
-  }
 
   // Build profiles from extracted + reviewed data
   const pa = extractedData.profile_a || {};
@@ -1365,7 +1320,7 @@ async function runScreenshotAnalysis() {
   showExtractStatus('Analyzing…', 'loading');
 
   try {
-    const result = await analyzeWithOpenAI(apiKey, profileA, profileB, anonConvo);
+    const result = await analyzeWithOpenAI(profileA, profileB, anonConvo);
     renderAnalysis(result);
     showExtractStatus('Analysis complete ✓', 'success');
     document.querySelector('.panel-right').scrollIntoView({ behavior: 'smooth', block: 'start' });
