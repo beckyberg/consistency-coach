@@ -1,6 +1,7 @@
 /* ============================================================
    CONSISTENCY COACH — analyze.js
-   Direct OpenAI call from browser (bypasses proxy)
+   Builds the prompt and calls OpenAI via the server proxy (/api/openai).
+   The API key stays server-side and never reaches the browser.
 
    PROMPT VERSION: v2.0
    Updated: July 2026

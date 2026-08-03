@@ -57,9 +57,11 @@ It is important to note that this study was not IRB approved — it was conducte
 
 The prototype is a web application with a three-panel layout. The left panel shows two dating profiles. The center panel shows their conversation and allows the user to add new messages. The right panel shows the agent's analysis after it runs.
 
-The technology stack is straightforward: the interface is built in plain HTML, CSS, and JavaScript. A lightweight Node.js server runs in the background to serve the files and provide demo scenario data. The AI analysis is performed by GPT-4o, OpenAI's most capable model, which is called directly from the browser rather than being routed through the server.
+The technology stack is straightforward: the interface is built in plain HTML, CSS, and JavaScript. A lightweight Node.js server runs in the background to serve the files and provide demo scenario data. The AI analysis is performed by GPT-4o, OpenAI's most capable model.
 
-The reason for calling OpenAI directly from the browser — rather than through the server — is a practical one. The prototype runs inside a preview environment that uses a proxy, and POST requests routed through that proxy were being blocked. Calling the API directly from the browser bypasses that issue entirely.
+All OpenAI calls are routed through the server, not made from the browser. The browser sends the conversation to a server endpoint (`/api/openai`), the server attaches the API key and forwards the request to OpenAI, and the response comes back the same way. The key lives only in the server's environment and is never sent to the browser or stored there.
+
+*(An earlier version of the prototype did call OpenAI directly from the browser, as a workaround for a proxy issue in the original preview environment. That approach required putting a live API key into the browser, which exposes it to anything running in the page. It has been replaced with the server-side proxy described above.)*
 
 The heart of the prototype is a document called the system prompt, which lives in a file called `analyze.js`. This is the most research-critical file in the entire project. It is essentially Becky's study findings translated into instructions for GPT-4o. Every signal category — every green flag, every red flag, every readiness cue — is drawn directly from what her 62 participants described in their own words. When someone asks "where did the agent logic come from," the answer is: from the study. The system prompt is the bridge between the research and the technology.
 
@@ -69,9 +71,9 @@ The files and what each one does:
 - **agent.js** — An alternate version of the agent logic written for server-side use. Not currently active in the UI, but preserved for a future upgrade when the prototype moves to a fine-tuned model.
 - **public/index.html** — The HTML structure of the three-panel interface.
 - **public/style.css** — All the visual styling. Dark mode, purple accent color, card layouts.
-- **public/app.js** — The frontend logic. Handles loading scenarios, rendering profiles and conversations, managing the API key, and displaying analysis results.
-- **public/analyze.js** — The browser-direct OpenAI call and the full system prompt. This is where the research lives in code form.
-- **.env** — A local file containing the OpenAI API key. This file is never uploaded to GitHub.
+- **public/app.js** — The frontend logic. Handles loading scenarios, rendering profiles and conversations, parsing imported text, and displaying analysis results.
+- **public/analyze.js** — Builds the request to OpenAI (sent via the server proxy) and holds the full system prompt. This is where the research lives in code form.
+- **.env** — A local file containing the OpenAI API key. Read by the server at startup; never sent to the browser and never uploaded to GitHub.
 - **.env.example** — A template showing what the .env file should look like, safe to share publicly.
 - **.gitignore** — Tells Git which files to exclude from version control. Protects the .env file and the node_modules folder.
 - **README.md** — Portfolio documentation for the GitHub repository.
@@ -94,18 +96,11 @@ Taylor and Morgan. Taylor is a nurse who admits in their profile to being "a lit
 
 ---
 
-## Credentials and Keys
+## Secret Management
 
-**OpenAI API Key**
-Stored locally in the `.env` file inside the project folder. Also saved in the browser's localStorage under the key `cc_openai_key` so it doesn't need to be re-entered every time. The key is not in any code file and is not on GitHub. It appeared in the chat session during setup — rotating it is recommended when convenient. The account has approximately $5 in credits loaded, which covers roughly 1,000 analyses at current GPT-4o pricing.
+The OpenAI API key is kept out of the codebase entirely. It lives in a local `.env` file that `.gitignore` excludes from version control, so it is never committed or pushed. The server reads it at startup and attaches it to outgoing OpenAI requests; the browser never receives it.
 
-To set a spending cap as a precaution: platform.openai.com/settings/billing — set a monthly usage limit.
-
-**GitHub Token**
-Used temporarily during the session to authenticate the push to GitHub. It was embedded in the git remote URL during the push, then immediately removed. It is not in any file and not in the repository. It appeared in chat — low urgency to rotate, but worth doing eventually.
-
-**GitHub Repository**
-https://github.com/beckyberg/consistency-coach — public, so employers can view it.
+A companion file, `.env.example`, is committed to the repository. It contains the *names* of the required settings with placeholder values, so anyone cloning the project knows what to configure without any real credential being shared.
 
 ---
 
@@ -167,32 +162,7 @@ The design would recruit 100 active dating app users, follow them for six to eig
 
 Without institutional affiliation, IRB approval requires one of three paths: an independent IRB service such as Advarra or WCG (cost: $1,500–$5,000), a faculty sponsor at Columbia or Teachers College (possible given alumni status — worth reaching out to a former advisor), or an industry partnership where a dating app company sponsors and IRB-approves the study. The third path is the most realistic and most valuable, and it becomes available once a role at a dating app company is secured.
 
-The recommended sequencing is: build the portfolio prototype now, use it to get hired, then run the longitudinal study with institutional backing from the employer. This is not a compromise — it is the career path working as intended.
-
----
-
-## Career Positioning
-
-**The Problem Being Solved**
-
-Dating app companies are losing users. Match Group, which owns Tinder and Hinge, saw paying subscribers fall to 14.2 million in Q1 2025 — the fifth consecutive quarter of decline. Bumble's paying users dropped 21% year over year. The core issue is that users experience the apps as optimizing for engagement rather than outcomes. They swipe endlessly, have surface-level conversations, and either never meet or meet someone who turns out to be nothing like their profile. Trust in the platforms is eroding.
-
-The agentic AI features companies are currently building — Tinder Chemistry, Bumble Bee, Hinge's ML upgrades — are all focused on Stage 2 (matching). Virtually no one is addressing Stages 3 and 5: the conversation phase and the offline transition. These are the stages Becky's prototype addresses. This is the white space.
-
-**Target Roles**
-
-- Dating Outcomes Researcher — Hinge has publicly employed this role. It exists specifically to study whether the app's users achieve the relationships they came for.
-- Trust and Safety Research Scientist — applies the safety study and the consistency detection framework directly to the challenge of identifying harmful behavior before it escalates.
-- Conversation Design Researcher — applies the thesis work on intimate conversations and behavioral outcomes to the design of prompts, icebreakers, and messaging features.
-- AI Ethics / Responsible AI — the bot-to-bot conversation problem (where AI agents talk to each other before humans ever meet) is a psychology and ethics problem before it is a technology problem. This is a role Becky is uniquely qualified for.
-
-**The Pitch**
-
-"I identified a gap at Stages 3 and 5 of the dating app pipeline — conversation and offline transition — where agentic AI is essentially absent. I ran original user research with 62 participants, identified the specific behavioral signals that predict authentic connection, and built a working prototype that demonstrates the concept. Here is the system prompt. Here is the research it came from. Here is the production roadmap, including the ethical framework I designed around two-party consent and data privacy. I built this because I understand that the companies losing users right now are losing them at exactly this stage of the pipeline — and I know what to do about it."
-
-**The Gatekeeping Problem**
-
-Dating app tech teams are largely composed of engineers, data scientists, and product managers. They have not historically hired relationship psychologists. The prototype is the answer to this problem. It demonstrates technical literacy — understanding of agentic AI architecture, LLM prompt engineering, API integration, version control, and product development workflow — while grounding everything in the research expertise that engineers on these teams genuinely do not have. The combination is rare. The prototype makes it visible.
+The recommended sequencing is to build the prototype first and pursue the longitudinal study with institutional backing once a sponsoring partner is in place. This is not a compromise — a pilot that motivates a rigorous follow-up is how this kind of research normally progresses.
 
 ---
 
@@ -209,7 +179,7 @@ npm install
 mom serve 3000 "Consistency Coach" -- node /workspace/consistency-coach/server.js
 ```
 
-Then enter the OpenAI API key in the key bar at the top of the app. If the key has been rotated, use the new one and update the .env file.
+Make sure the `.env` file exists in the project folder and contains a valid `OPENAI_API_KEY=` line. The server reads it at startup — there is no key entry in the app interface. If the key has been rotated, update `.env` with the new one and restart the server.
 
 To start building version 1.1:
 ```
@@ -223,8 +193,7 @@ git checkout -b feature/conversation-import
 
 - A file called `test.txt` was accidentally committed during setup. It can be removed with: `git rm test.txt` followed by `git commit -m "remove test file"`
 - The `agent.js` file is not currently used by the UI. It is preserved intentionally for the Version 2.0 upgrade path.
-- The OpenAI API key and GitHub token both appeared in the chat session. Both should be rotated when convenient. The OpenAI key is the higher priority because it is a live billing credential.
-- The SESSION_NOTES.md push to GitHub failed during this session due to the token having been cleared. Push it at the start of the next session with a fresh token.
+- Credential status and rotation steps are tracked privately, outside this repository.
 
 ---
 

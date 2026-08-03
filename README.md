@@ -115,7 +115,9 @@ npm start
 # Open http://localhost:3000
 ```
 
-The app also supports entering your API key directly in the UI — stored in localStorage and sent directly to OpenAI from the browser (never touches the server).
+The API key stays on the server. All OpenAI calls are routed through a server-side proxy (`/api/openai`), so the key is never sent to the browser and never stored there.
+
+> Earlier versions let you paste your own key into the UI, which kept it in browser localStorage. That path has been removed — it exposed a live billing credential to anything running in the page.
 
 ---
 

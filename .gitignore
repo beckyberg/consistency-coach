@@ -1,3 +1,6 @@
 .env
 node_modules/
 *.log
+
+# Private working notes — never publish (repo is public)
+PRIVATE_NOTES.md
