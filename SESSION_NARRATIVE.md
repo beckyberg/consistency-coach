@@ -19,9 +19,9 @@ This is called an "agentic" AI because it doesn't just respond when asked. It wa
 
 ## The Research Foundation
 
-Everything the agent looks for is grounded in a study Becky conducted in 2025 called "Bridging the Gap from Swiping to IRL." Sixty-two dating app users participated, answering questions about how they evaluate trust, what makes someone seem authentic, what makes someone seem fake, and what ultimately motivates them to agree to meet someone in person.
+Everything the agent looks for is grounded in a study Becky conducted in 2025 called "Bridging the Gap from Swiping to IRL." Sixty-one dating app users participated, answering questions about how they evaluate trust, what makes someone seem authentic, what makes someone seem fake, and what ultimately motivates them to agree to meet someone in person.
 
-The single most important finding, which directly justifies building this tool, was this: **62% of participants said that quality of conversation was the number one factor in their decision to meet someone in person.** Not photos. Not verification status. Not proximity. Conversation quality.
+The single most important finding, which directly justifies building this tool, was this: **62.3% of participants — 38 of the 61 — said that quality of conversation was the number one factor in their decision to meet someone in person.** Not photos. Not verification status. Not proximity. Conversation quality.
 
 Other key findings that power the agent's detection logic:
 
@@ -63,7 +63,7 @@ All OpenAI calls are routed through the server, not made from the browser. The b
 
 *(An earlier version of the prototype did call OpenAI directly from the browser, as a workaround for a proxy issue in the original preview environment. That approach required putting a live API key into the browser, which exposes it to anything running in the page. It has been replaced with the server-side proxy described above.)*
 
-The heart of the prototype is a document called the system prompt, which lives in a file called `analyze.js`. This is the most research-critical file in the entire project. It is essentially Becky's study findings translated into instructions for GPT-4o. Every signal category — every green flag, every red flag, every readiness cue — is drawn directly from what her 62 participants described in their own words. When someone asks "where did the agent logic come from," the answer is: from the study. The system prompt is the bridge between the research and the technology.
+The heart of the prototype is a document called the system prompt, which lives in a file called `analyze.js`. This is the most research-critical file in the entire project. It is essentially Becky's study findings translated into instructions for GPT-4o. Every signal category — every green flag, every red flag, every readiness cue — is drawn directly from what her 61 participants described in their own words. When someone asks "where did the agent logic come from," the answer is: from the study. The system prompt is the bridge between the research and the technology.
 
 The files and what each one does:
 
@@ -144,7 +144,7 @@ The long-term technical upgrade. Replace the GPT-4o prompt with a model that has
 
 ## Research Roadmap
 
-The prototype currently rests on one study — the 2025 portfolio study with 62 participants. That study provides the conceptual foundation and the signal framework. But to build a production-ready model, two additional research efforts are needed.
+The prototype currently rests on one study — the 2025 portfolio study with 61 participants. That study provides the conceptual foundation and the signal framework. But to build a production-ready model, two additional research efforts are needed.
 
 **Study A — Consistency Signal Operationalization**
 

@@ -23,10 +23,10 @@ When the signals align, the agent suggests a low-friction, safety-aware path to 
 
 ## Research Foundation
 
-62 dating app users participated in a study on trust and authenticity in digital dating.
+61 dating app users participated in a study on trust and authenticity in digital dating.
 
 Key findings driving this prototype:
-- **62% cited "quality of conversation"** as the #1 factor in deciding to meet in person
+- **62.3% (38 of 61) cited "quality of conversation"** as the #1 factor in deciding to meet in person
 - Participants described frustration with people who seemed authentic on their profile but communicated differently in conversation
 - Multi-day non-responsiveness was specifically cited as a trust-eroding behavior
 
