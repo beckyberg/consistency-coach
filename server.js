@@ -219,7 +219,11 @@ app.post('/api/message', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Consistency Coach running on port ${PORT}`);
-  console.log(`OpenAI client: ${openaiClient ? 'ACTIVE' : 'NOT CONFIGURED (mock mode)'}`);
-});
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Consistency Coach running on port ${PORT}`);
+    console.log(`OpenAI client: ${openaiClient ? 'ACTIVE' : 'NOT CONFIGURED (mock mode)'}`);
+  });
+}
+
+module.exports = app;
