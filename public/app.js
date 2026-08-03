@@ -1065,13 +1065,27 @@ function updateExtractBtn() {
   document.getElementById('extract-btn').disabled = !hasConvo;
 }
 
-// ---- FILE TO BASE64 ----
-function fileToBase64(file) {
+// ---- FILE TO BASE64 (downscaled + recompressed so uploads stay under server/host size limits) ----
+function fileToBase64(file, maxDim = 1600, quality = 0.82) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = e => resolve(e.target.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
+    };
+    img.onerror = reject;
+    img.src = objectUrl;
   });
 }
 
@@ -1092,8 +1106,7 @@ async function extractFromScreenshots() {
       const blocks = [{ type: 'text', text: `=== ${label} ===` }];
       for (const f of files) {
         const b64 = await fileToBase64(f);
-        const mime = f.type || 'image/jpeg';
-        blocks.push({ type: 'image_url', image_url: { url: `data:${mime};base64,${b64}`, detail: 'high' } });
+        blocks.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${b64}`, detail: 'high' } });
       }
       return blocks;
     };
