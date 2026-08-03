@@ -121,6 +121,21 @@ const DEMO_SCENARIOS = {
   }
 };
 
+// Server-side OpenAI proxy. The API key is never exposed to the browser.
+app.post('/api/openai', async (req, res) => {
+  if (!openaiClient) return res.status(503).json({ error: { message: 'OpenAI API is not configured' } });
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
+      body: JSON.stringify(req.body)
+    });
+    res.status(response.status).send(await response.text());
+  } catch (err) {
+    res.status(502).json({ error: { message: err.message } });
+  }
+});
+
 // Route: get demo scenarios list
 app.get('/api/scenarios', (req, res) => {
   const list = Object.entries(DEMO_SCENARIOS).map(([key, s]) => ({

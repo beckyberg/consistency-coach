@@ -3,11 +3,11 @@
  * 
  * Signal framework derived from:
  * "Bridging the Gap from Swiping to IRL" — Becky Berg (2025)
- * 62-participant study on trust & authenticity in dating apps
- * 
+ * 61-participant study on trust & authenticity in dating apps
+ *
  * RESEARCH GROUNDING:
- * - 62% of users cited "quality of conversation" as the #1 factor
- *   in deciding to meet someone in person
+ * - 62.3% of users (38 of 61) cited "quality of conversation" as the
+ *   #1 factor in deciding to meet someone in person
  * - Trust signals operate across two stages: profile AND conversation
  * - Profile-to-conversation consistency is the primary mechanism
  *   through which trust is either built or eroded
@@ -27,7 +27,7 @@ Your purpose — grounded in relationship psychology research — is to:
 ---
 
 RESEARCH FOUNDATION (Becky Berg, 2025 — "Bridging the Gap from Swiping to IRL"):
-62 dating app users identified these specific signals. Your analysis must be grounded in them.
+61 dating app users identified these specific signals. Your analysis must be grounded in them.
 
 PROFILE CONSISTENCY SIGNALS TO MONITOR:
 - Prompt specificity: Are their conversation messages as specific and personal as their profile prompts, or have they reverted to generic responses?
